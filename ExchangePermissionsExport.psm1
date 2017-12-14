@@ -44,6 +44,47 @@ function New-PermissionExportObject
     }
 #end function New-PermissionExportObject
 
+function Add-TrusteeAttributesToPermissionExportObject
+{
+    [cmdletbinding()]
+    param
+    (
+    [parameter(Mandatory)]
+    [Alias('rpeo')]
+    $rawPermissionExportObject
+    ,
+    [parameter(Mandatory)]
+    [Alias('Recipient','Mailbox')]
+    [AllowNull()]
+    $TrusteeRecipientObject
+    ,
+    [switch]$None
+    )#End Param
+    if ($TrusteeRecipientObject -ne $null)
+    {
+        $MorePermissionExportProperties = @{
+            TrusteeObjectGUID = $TrusteeRecipientObject.guid.Guid
+            TrusteeDistinguishedName = $TrusteeRecipientObject.DistinguishedName
+            TrusteePrimarySMTPAddress = $TrusteeRecipientObject.PrimarySmtpAddress.ToString()
+            TrusteeRecipientType = $TrusteeRecipientObject.RecipientType
+            TrusteeRecipientTypeDetails = $TrusteeRecipientObject.RecipientTypeDetails
+            
+        }
+    }
+    else
+    {
+        $MorePermissionExportProperties = @{
+            TrusteeObjectGUID = $null
+            TrusteeDistinguishedName = if ($None) {'none'} else {$null}
+            TrusteePrimarySMTPAddress = if ($None) {'none'} else {$null}
+            TrusteeRecipientType = $null
+            TrusteeRecipientTypeDetails = $null
+        }
+    }
+    Add-Member -InputObject $rawPermissionExportObject -NotePropertyMembers $MorePermissionExportProperties
+}
+#end function Add-TrusteeAttributesToPermissionExportObject
+
 Function Get-SIDHistoryRecipientHash 
     {
         [cmdletbinding()]
@@ -174,9 +215,9 @@ Function Export-Permissions
         [bool]$dropInheritedPermissions = $false #Currently Functional Only For Send-As, though this function is hard-coded to ignore inherited FMB and inherited SendOnBehalf is not possible.
         ,
         [bool]$IncludeSIDHistory = $false
-        ,
-        [parameter()]
-        [Microsoft.ActiveDirectory.Management.Provider.ADDriveInfo]$ActiveDirectoryDrive
+        #,
+        #[parameter()]
+        #[Microsoft.ActiveDirectory.Management.Provider.ADDriveInfo]$ActiveDirectoryDrive
     )#End Param
     Begin
     {
@@ -293,8 +334,9 @@ Function Export-Permissions
 
         #Region GetDistinguishedNameHash
         $DistinguishedNameHash = $InScopeRecipients | Group-Object -AsHashTable -Property DistinguishedName -AsString
-        $SendASRight = [GUID]'ab721a54-1e2f-11d0-9819-00aa0040529b' #Well-known GUID for Send As Permissions, see function Get-SendASRightGUID
 
+
+        $SendASRight = [GUID]'ab721a54-1e2f-11d0-9819-00aa0040529b' #Well-known GUID for Send As Permissions, see function Get-SendASRightGUID
         $mailboxCounter = 0
         [uint32]$Script:PermissionIdentity = 0
 
@@ -313,7 +355,8 @@ Function Export-Permissions
             Write-Progress -Activity $message -status "Items processed: $($mailboxCounter) of $($InScopeRecipientCount)" -percentComplete (($mailboxCounter / $InScopeRecipientCount)*100)
             Write-Log -Message $message -EntryType Attempting
             $rawPermissions = @(
-                #Get Delegate Users (actual permissions are stored in the mailbox . . . so these are not true delegates just a likely correlation to delegates) This section should also check if the grantsendonbehalfto permission holder is a group, because it can be . . .
+                #Get Delegate Users (actual permissions are stored in the mailbox . . . so these are not true delegates just a likely correlation to delegates) 
+                #This section should also check if the grantsendonbehalfto permission holder is a group, because it can be . . .
                 If (($IncludeSendOnBehalf) -and (!($GlobalSendAs)))
                 {
                     $sbTrustees = $mailbox.grantsendonbehalfto.ToArray()
@@ -343,18 +386,37 @@ Function Export-Permissions
                 If (($IncludeSendAs) -or ($GlobalSendAs))
                 {
                     #add code to check session
-                    $userDN = [ADSI]("LDAP://$($mailbox.DistinguishedName)")
-                    $saTrustees = @(
-                        $userDN.psbase.ObjectSecurity.Access | Where-Object -FilterScript { (($_.ObjectType -eq $SendASRight) -or ($_.ActiveDirectoryRights -eq 'GenericAll')) -and ($_.AccessControlType -eq 'Allow')} | 
-                        Where-Object -FilterScript {$_.identityreference -notin $ExcludedTrustees}|Where-Object -FilterScript {($_.identityreference.ToString().split('\')[0]) -notin $ExcludedTrusteeDomains}|Select-Object identityreference,IsInherited 
-                        #| Where-Object -FilterScript {$_ -notlike "NT AUTHORITY\SELF"}
-                    )
-                    foreach ($sa in $saTrustees)
-                    {	
-                        If ($sa.IsInherited -eq $true) {
-                            If ($dropInheritedPermissions) {Continue}
-                        }#End If
-                        New-PermissionExportObject -TargetMailbox $mailbox -TrusteeIdentity $sa.identityreference -PermissionType SendAs -AssignmentType Direct -SourceExchangeOrganization $ExchangeOrganization -IsInherited $sa.IsInherited
+                    if ($ExchangeOrganization -like '*.onmicrosoft.com')
+                    {
+                        $splat = @{
+                            ErrorAction = 'Stop'
+                            ResultSize = 'Unlimited'
+                            Identity = $ID
+                            AccessRights = 'SendAs'
+                        }
+                        $saRawPermissions = Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-RecipientPermission @using:splat} -ErrorAction Stop
+                        if ($dropInheritedPermissions)
+                        {$saRawPermissions = $saRawPermissions | Where-Object -FilterScript {$_.IsInherited -eq $false}}
+                        $saRawPermissions |
+                        ForEach-Object {
+                            New-PermissionExportObject -TargetMailbox $mailbox -TrusteeIdentity $_.Trustee -PermissionType SendAs -AssignmentType Direct -SourceExchangeOrganization $ExchangeOrganization -IsInherited $_.IsInherited
+                        }
+                    }
+                    else
+                    {
+                        $userDN = [ADSI]("LDAP://$($mailbox.DistinguishedName)")
+                        $saTrustees = @(
+                            $userDN.psbase.ObjectSecurity.Access | Where-Object -FilterScript { (($_.ObjectType -eq $SendASRight) -or ($_.ActiveDirectoryRights -eq 'GenericAll')) -and ($_.AccessControlType -eq 'Allow')} | 
+                            Where-Object -FilterScript {$_.identityreference -notin $ExcludedTrustees}|Where-Object -FilterScript {($_.identityreference.ToString().split('\')[0]) -notin $ExcludedTrusteeDomains}|Select-Object identityreference,IsInherited 
+                            #| Where-Object -FilterScript {$_ -notlike "NT AUTHORITY\SELF"}
+                        )
+                        foreach ($sa in $saTrustees)
+                        {	
+                            If ($sa.IsInherited -eq $true) {
+                                If ($dropInheritedPermissions) {Continue}
+                            }#End If
+                            New-PermissionExportObject -TargetMailbox $mailbox -TrusteeIdentity $sa.identityreference -PermissionType SendAs -AssignmentType Direct -SourceExchangeOrganization $ExchangeOrganization -IsInherited $sa.IsInherited
+                        }
                     }
                 }
             )
