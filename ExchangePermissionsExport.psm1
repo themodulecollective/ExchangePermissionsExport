@@ -164,7 +164,7 @@ Function Get-SendOnBehalfPermission
         $ExchangeOrganization
     )
     Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
-    if ($Mailbox.GrantSendOnBehalfTo.ToArray().count -ne 0)
+    if ($TargetMailbox.GrantSendOnBehalfTo.ToArray().count -ne 0)
     {
         Write-Verbose -message "Target Mailbox has entries in GrantSendOnBehalfTo"
         $splat = @{
@@ -232,6 +232,7 @@ function Get-FullAccessPermission
         ,
         $ExchangeOrganization
     )
+    Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
     $splat = @{Identity = $TargetMailbox.guid.guid; ErrorAction = 'Stop'}
     $FilterScriptString = '($_.AccessRights -like "*FullAccess*") -and -not ($_.User -like "NT AUTHORITY\SELF") -and -not ($_.Deny -eq $True) -and -not ($_.User -like "S-1-5*")'
     if ($dropInheritedPermissions -eq $true)
@@ -245,7 +246,8 @@ function Get-FullAccessPermission
     foreach ($fa in $faRawPermissions)
     {
         $user = $fa.User
-        $trusteeRecipient = $(
+        $trusteeRecipient =
+        $(
             switch ($DomainPrincipalHash.ContainsKey($user))
             {
                 $true
@@ -268,6 +270,7 @@ function Get-FullAccessPermission
                 }
             }#end Switch
         )
+
         if ($null -ne $trusteeRecipient -and -not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
         {
             $npeoParams = @{
@@ -279,7 +282,8 @@ function Get-FullAccessPermission
             }
             New-PermissionExportObject @npeoParams
         }
-    }#end foreach fa
+    }
+    #end foreach fa
 }
 
 Function Export-Permissions
@@ -547,7 +551,7 @@ Function Export-Permissions
                 }
                 If (($IncludeFullAccess) -and (!($GlobalSendAs)))
                 {
-                    Get-FullAccessPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization
+                    Get-FullAccessPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash
                 }
                 #Get Send As Users
                 If (($IncludeSendAs) -or ($GlobalSendAs))
