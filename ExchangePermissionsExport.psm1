@@ -1,21 +1,42 @@
-function Expand-GroupPermission
+#Expand groups per recipient loop if called for
+function Expand-GroupPermissionViaLocalLDAP
     {
-        if ($expandGroups)
+        [CmdletBinding()]
+        param
+        (
+            [psobject[]]$Permission
+            ,
+            [hashtable]$DistinguishedNameHash
+            ,
+            [hashtable]$ObjectGUIDHash
+            ,
+            [hashtable]$SIDHistoryHash
+            ,
+            $exchangeSession
+        )
+
         {
-            #enumerate groups: http://stackoverflow.com/questions/8055338/listing-users-in-ad-group-recursively-with-powershell-script-without-cmdlets/8055996#8055996
-            $dse = [ADSI]"LDAP://Rootdse"
-            $dn = [ADSI]"LDAP://$($dse.DefaultNamingContext)"
-            $dsLookFor = New-Object System.DirectoryServices.DirectorySearcher($dn)
+            $gPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -like '*Group*'})
+            $ngPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -notlike '*Group*' -or $null -eq $_.TrusteeRecipientTypeDetails})
+            if ($gPermissions.Count -ge 1)
+            {
+                if (-not (Test-Path -Path variable:script:dsLookFor))
+                {
+                    #enumerate groups: http://stackoverflow.com/questions/8055338/listing-users-in-ad-group-recursively-with-powershell-script-without-cmdlets/8055996#8055996
+                    $script:dse = [ADSI]"LDAP://Rootdse"
+                    $script:dn = [ADSI]"LDAP://$($script:dse.DefaultNamingContext)"
+                    $script:dsLookFor = New-Object System.DirectoryServices.DirectorySearcher($script:dn)
+                    $script:dsLookFor.SearchScope = "subtree" 
+                }
+            }
             $expandedPermissions = @(
-                $groupPerms = @($rawPermissions | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -like '*Group*'})
-                foreach ($gp in $groupPerms)
+                foreach ($gp in $gPermissions)
                 {
                     $dsLookFor.Filter = "(&(memberof:1.2.840.113556.1.4.1941:=$($gp.TrusteeDistinguishedName))(objectCategory=user))" 
-                    $dsLookFor.SearchScope = "subtree" 
                     $lstUsr = $dsLookFor.findall()
                     foreach ($u in $lstUsr)
                     {
-                        $uDN = $u.Properties.distinguishedname
+                        $uDN = $u.Properties.distinguishedname  #what other properties are availabl to send to Get-TrusteeObject?
                         if ($DistinguishedNameHash.ContainsKey("$uDN"))
                         {$Recipient = @($DistinguishedNameHash."$uDN")}
                         else
@@ -83,13 +104,14 @@ function Expand-GroupPermission
     }
 #end Function Expand-GroupPermission
 function Get-CalendarPermission
-{
-    $CalendarPermission = Get-MailboxFolderPermission -Identity ($Mailbox.alias + ':\Calendar') -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | ?{$_.User -notlike "Anonymous" -and $_.User -notlike "Default"} | Select User, AccessRights
-    if (!$CalendarPermission){
-        $Calendar = (($Mailbox.PrimarySmtpAddress.ToString())+ ":\" + (Get-MailboxFolderStatistics -Identity $Mailbox.DistinguishedName -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | where-object {$_.FolderType -eq "Calendar"} | Select-Object -First 1).Name)
-        $CalendarPermission = Get-MailboxFolderPermission -Identity $Calendar -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | ?{$_.User -notlike "Anonymous" -and $_.User -notlike "Default"} | Select User, AccessRights
+    {
+        $CalendarPermission = Get-MailboxFolderPermission -Identity ($Mailbox.alias + ':\Calendar') -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | ?{$_.User -notlike "Anonymous" -and $_.User -notlike "Default"} | Select User, AccessRights
+        if (!$CalendarPermission){
+            $Calendar = (($Mailbox.PrimarySmtpAddress.ToString())+ ":\" + (Get-MailboxFolderStatistics -Identity $Mailbox.DistinguishedName -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | where-object {$_.FolderType -eq "Calendar"} | Select-Object -First 1).Name)
+            $CalendarPermission = Get-MailboxFolderPermission -Identity $Calendar -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | ?{$_.User -notlike "Anonymous" -and $_.User -notlike "Default"} | Select User, AccessRights
+        }
     }
-}
+#end Get-CalendarPermission
 ###################################################################
 #Get Permission Functions
 ###################################################################
@@ -235,63 +257,57 @@ function Get-TrusteeObject
             [hashtable]$ObjectGUIDHash
             ,
             [hashtable]$DomainPrincipalHash
+            ,
+            [hashtable]$SIDHistoryHash
         )
-        $IdentityIsGUID = Test-StringisConvertibleToGUID -string $TrusteeIdentity
-        $AttemptGetTrusteeObject = $false
         $trusteeObject = $(
-            switch ($IdentityIsGUID)
+            switch ($TrusteeIdentity)
             {
-                $true
+                {$ObjectGUIDHash.ContainsKey($_)}
                 {
-                    switch ($ObjectGUIDHash.ContainsKey($TrusteeIdentity))
+                    $ObjectGUIDHash.$($_)
+                    break
+                }
+                {$DomainPrincipalHash.ContainsKey($_)}
+                {
+                    $DomainPrincipalHash.$($_)
+                    break
+                }
+                {$DistinguishedNameHash.ContainsKey($_)}
+                {
+                    $DistinguishedNameHash.$($_)
+                    break
+                }
+                {$SIDHistoryHash.ContainsKey($_)}
+                {
+                    $SIDHistoryHash.$($_)
+                    break
+                }
+                Default
+                {
+                    $splat = @{
+                        Identity = $TrusteeIdentity
+                        ErrorAction = 'SilentlyContinue'
+                    }
+                    Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
+                    if ($null -eq $AddToLookup)
                     {
-                        $true
-                        {
-                            $ObjectGUIDHash.$($sb.ObjectGUID.guid)
-                        }
-                        $false
-                        {
-                            $AttemptGetTrusteeObject = $true
-                        }
+                        Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
+                    }
+                    if ($null -eq $AddToLookup)
+                    {
+                        Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-User @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
                     }
                 }
-                $false
-                {
-                    switch ($DomainPrincipalHash.ContainsKey($TrusteeIdentity))
-                    {
-                        $true
-                        {
-                            $DomainPrincipalHash.$($TrusteeIdentity)
-                        }
-                        $false
-                        {
-                            $AttemptGetTrusteeObject = $true
-                        }
-                    }
-                }
-            }
-            if ($AttemptGetTrusteeObject -eq $true)
-            {
-                $splat = @{
-                    Identity = $TrusteeIdentity
-                    ErrorAction = 'SilentlyContinue'
-                }
-                Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
-            }
-            if ($null -eq $AddToLookup)
-            {
-                Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
-            }
-            if ($null -eq $AddToLookup)
-            {
-                Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-User @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
             }
         )
+        #if we found a 'new' object add it to the lookup hashtables
         if ($null -ne $AddToLookup)
         {
             $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$ObjectGUIDHash.$($_.ExchangeGuid.Guid) = $_} -ErrorAction SilentlyContinue
             $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$ObjectGUIDHash.$($_.Guid.Guid) = $_} -ErrorAction SilentlyContinue
-            if ($IdentityIsGUID -eq $false)
+            $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$DistinguishedNameHash.$($_.DistinguishedName) = $_} -ErrorAction SilentlyContinue
+            if ($TrusteeIdentity -like '*\*' -or $TrusteeIdentity -like '*@*')
             {
                 $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$DomainPrincipalHash.$($TrusteeIdentity) = $_} -ErrorAction SilentlyContinue
             }
@@ -634,13 +650,13 @@ Function Export-ExchangePermission
             [ValidateScript({$_.gettype().name -eq 'ADDriveInfo'})]#doing this as a validatescript instead of a type declaration so that this will run on a system that lacks the ActiveDirectory module if the user doesn't need this parameter.
             $ActiveDirectoryDrive
             ,
-            [switch]$UseExchangeCommandsToGetSendAS
+            [switch]$UseExchangeCommandsInsteadOfADOrLDAP
             ,
             [switch]$ExcludeNonePermissionOutput
         )#End Param
         Begin
         {
-            $Stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+            #$Stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
             $BeginTimeStamp = Get-Date -Format yyyyMMdd-HHmmss
             $script:LogPath = Join-Path -path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations.log')
             $script:ErrorLogPath = Join-Path -path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations-ERRORS.log')
@@ -787,6 +803,10 @@ Function Export-ExchangePermission
             {
                 $SIDHistoryRecipientHash = Get-SIDHistoryRecipientHash -ActiveDirectoryDrive $ActiveDirectoryDrive -ExchangeSession $ExchangeSession -ErrorAction Stop
             }
+            else 
+            {
+                $SIDHistoryRecipientHash = @{}
+            }
             #EndRegion GetSIDHistoryData
 
             #Region BuildLookupHashTables
@@ -802,6 +822,11 @@ Function Export-ExchangePermission
             {
                 $DistinguishedNameHash = $InScopeRecipients | Select-object -property $HRPropertySet | Group-Object -AsHashTable -Property DistinguishedName -AsString
             }
+            else
+            {
+                $DistinguishedNameHash = @{}
+            }
+            #this one has to be populated as we go
             $DomainPrincipalHash = @{}
             #EndRegion BuildLookupHashtables
 
@@ -832,7 +857,7 @@ Function Export-ExchangePermission
                     #Get Send As Users
                     If (($IncludeSendAs) -or ($GlobalSendAs))
                     {
-                        if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsToGetSendAS)
+                        if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsInsteadOfADOrLDAP)
                         {
                             #add code to check session
                             Get-SendASPermissionsViaExchange -TargetMailbox $ISR -ExchangeSession $ExchangeSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet
@@ -843,6 +868,10 @@ Function Export-ExchangePermission
                         }
                     }
                 )
+                if ($expandGroups -eq $true)
+                {
+
+                }
                 if ($PermissionExportObjects.Count -eq 0 -and -not $ExcludeNonePermissionOutput -eq $true)
                 {
                     $GPEOParams = @{

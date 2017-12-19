@@ -189,12 +189,15 @@ function Test-IsWriteableDirectory
 function Test-StringIsConvertibleToGUID
 {
     [CmdletBinding()]
-    param(
+    param
+    (
+        [parameter(Mandatory,ValueFromPipeline)]
         [String]$string
     )
     try {([guid]$string -is [guid])} catch {$false}
 }
 #end function Test-StringIsConvertibleToGUID
+
 Function Write-Log
 {
     [cmdletbinding()]
