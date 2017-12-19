@@ -186,6 +186,15 @@ function Test-IsWriteableDirectory
     }
 }
 #end function Test-IsWriteableDirectory
+function Test-StringIsConvertibleToGUID
+{
+    [CmdletBinding()]
+    param(
+        [String]$string
+    )
+    try {([guid]$string -is [guid])} catch {$false}
+}
+#end function Test-StringIsConvertibleToGUID
 Function Write-Log
 {
     [cmdletbinding()]
