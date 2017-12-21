@@ -1,105 +1,194 @@
-#Expand groups per recipient loop if called for
-function Expand-GroupPermissionViaLocalLDAP
+#should we look for forwarded mailboxes?
+function Get-GroupMemberExpandedViaExchange
+{
+    [CmdletBinding()]
+    param
+    (
+        [string]$Identity
+        ,
+        $ExchangeSession
+        ,
+        $ExchangeOrganizationIsInExchangeOnline
+        ,
+        $hrPropertySet
+        ,
+        $ObjectGUIDHash
+        ,
+        $DomainPrincipalHash
+        ,
+        $SIDHistoryRecipientHash
+        ,
+        [int]$iterationLimit = 100
+    )
+    $splat = @{
+        Identity = $Identity
+        ErrorAction = 'Stop'
+    }
+    $BaseGroupMemberIdentities = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members})
+    $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {Get-TrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline})
+    $iteration = 0
+    $AllResolvedMembers = @(
+        do
+        {
+            $iteration++
+            $BaseGroupMembership | Where-Object -FilterScript {$_.RecipientTypeDetails -notlike '*group*'}
+            $RemainingGroupMembers =  @($BaseGroupMembership | Where-Object -FilterScript {$_.RecipientTypeDetails -like '*group*'})
+            $BaseGroupMemberIdentities = @($RemainingGroupMembers | ForEach-Object {$splat = @{Identity = $_.objectguid.guid;ErrorAction = 'Stop'};invoke-command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members}})
+            $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {Get-TrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline})
+        }
+        until ($BaseGroupMembership.count -eq 0 -or $iteration -ge $iterationLimit)
+    )
+    Write-Output -InputObject $AllResolvedMembers
+}
+#end function Get-GroupMemberExpandedViaExchange
+function Get-GroupMemberExpandedViaLocalLDAP
+{
+    [CmdletBinding()]
+    param
+    (
+        [string]$Identity #distinguishedName
+        ,
+        $ExchangeSession
+        ,
+        $hrPropertySet
+        ,
+        $ObjectGUIDHash
+        ,
+        $DomainPrincipalHash
+        ,
+        $SIDHistoryRecipientHash
+    )
+    if (-not (Test-Path -Path variable:script:dsLookFor))
+    {
+        #enumerate groups: http://stackoverflow.com/questions/8055338/listing-users-in-ad-group-recursively-with-powershell-script-without-cmdlets/8055996#8055996
+        $script:dse = [ADSI]"LDAP://Rootdse"
+        $script:dn = [ADSI]"LDAP://$($script:dse.DefaultNamingContext)"
+        $script:dsLookFor = New-Object System.DirectoryServices.DirectorySearcher($script:dn)
+        $script:dsLookFor.SearchScope = "subtree" 
+    }
+    $script:dsLookFor.Filter = "(&(memberof:1.2.840.113556.1.4.1941:=$($Identity))(objectCategory=user))"
+    $TrusteeUserObjects = @($dsLookFor.findall())
+    foreach ($u in $TrusteeUserObjects)
+    {
+        $TrusteeIdentity = $(Get-GuidFromByteArray -GuidByteArray $($u.Properties.objectguid)).guid
+        $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $TrusteeIdentity -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+        if ($null -ne $trusteeRecipient)
+        {Write-Output -InputObject $trusteeRecipient}
+    }
+}
+#end function Get-GroupMemberExpandedViaExchange
+function Expand-GroupPermission
     {
         [CmdletBinding()]
         param
         (
             [psobject[]]$Permission
             ,
-            [hashtable]$DistinguishedNameHash
-            ,
             [hashtable]$ObjectGUIDHash
             ,
             [hashtable]$SIDHistoryHash
             ,
+            $excludedTrusteeGUIDHash
+            ,
+            $HRPropertySet
+            ,
             $exchangeSession
+            ,
+            $dropExpandedParentGroupPermissions
+            ,
+            [switch]$UseExchangeCommandsInsteadOfADOrLDAP
         )
-
+        $gPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -like '*Group*'})
+        $ngPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -notlike '*Group*' -or $null -eq $_.TrusteeRecipientTypeDetails})
+        if ($gPermissions.Count -ge 1)
         {
-            $gPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -like '*Group*'})
-            $ngPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -notlike '*Group*' -or $null -eq $_.TrusteeRecipientTypeDetails})
-            if ($gPermissions.Count -ge 1)
-            {
-                if (-not (Test-Path -Path variable:script:dsLookFor))
-                {
-                    #enumerate groups: http://stackoverflow.com/questions/8055338/listing-users-in-ad-group-recursively-with-powershell-script-without-cmdlets/8055996#8055996
-                    $script:dse = [ADSI]"LDAP://Rootdse"
-                    $script:dn = [ADSI]"LDAP://$($script:dse.DefaultNamingContext)"
-                    $script:dsLookFor = New-Object System.DirectoryServices.DirectorySearcher($script:dn)
-                    $script:dsLookFor.SearchScope = "subtree" 
-                }
-            }
             $expandedPermissions = @(
                 foreach ($gp in $gPermissions)
                 {
-                    $dsLookFor.Filter = "(&(memberof:1.2.840.113556.1.4.1941:=$($gp.TrusteeDistinguishedName))(objectCategory=user))" 
-                    $lstUsr = $dsLookFor.findall()
-                    foreach ($u in $lstUsr)
+                    #check if we have already expanded this group . . . 
+                    switch ($script:ExpandedGroupsNonGroupMembershipHash.ContainsKey($gp.TrusteeObjectGUID))
                     {
-                        $uDN = $u.Properties.distinguishedname  #what other properties are availabl to send to Get-TrusteeObject?
-                        if ($DistinguishedNameHash.ContainsKey("$uDN"))
-                        {$Recipient = @($DistinguishedNameHash."$uDN")}
+                        $true
+                        {
+                            #if so, get the terminal trustee objects from the expansion hashtable
+                            $UserTrustees = $script:ExpandedGroupsNonGroupMembershipHash.$($gp.TrusteeObjectGUID)
+                        }
+                        $false
+                        {
+                            #if not, get the terminal trustee objects now
+                            if ($UseExchangeCommandsInsteadOfADOrLDAP -eq $true)
+                            {
+                                $UserTrustees = @(Get-GroupMemberExpandedViaExchange -Identity $gp.TrusteeObjectGUID -ExchangeSession $exchangeSession -hrPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryRecipientHash $SIDHistoryRecipientHash)
+                            }
+                            else
+                            {
+                                $UserTrustees = @(Get-GroupMemberExpandedViaLocalLDAP -Identity $gp.TrusteeDistinguishedName -ExchangeSession $exchangeSession -hrPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryRecipientHash $SIDHistoryRecipientHash)
+                            }
+                            #and add them to the expansion hashtable
+                            $script:ExpandedGroupsNonGroupMembershipHash.$($gp.TrusteeObjectGUID) = $UserTrustees
+                        }
+                    }
+                    foreach ($u in $UserTrustees)
+                    {
+                        if ($UseExchangeCommandsInsteadOfADOrLDAP -eq $true)
+                        {
+                            $trusteeRecipient = $u
+                        }
                         else
                         {
-                            $splat = @{Identity = "$uDN"; ErrorAction = 'SilentlyContinue'}
-                            $Recipient = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @using:splat} -ErrorAction SilentlyContinue)
                         }
-                        switch ($Recipient.count)
+                        switch ($null -eq $trusteeRecipient)
                         {
-                            1
+                            $true
                             {
-                                $Recipient = $Recipient[0]
-                                $GPEOParams = @{
-                                    TargetMailbox = $ISR
-                                    TrusteeIdentity = $Recipient.DistinguishedName
+                                $npeoParams = @{
+                                    TargetMailbox = $TargetMailbox
+                                    TrusteeIdentity = $TrusteeIdentity
+                                    TrusteeRecipientObject = $null
                                     PermissionType = $gp.PermissionType
                                     AssignmentType = 'GroupMembership'
-                                    TrusteeGroupObjectGUID = $gp.TrusteeObjectGUID
                                     SourceExchangeOrganization = $ExchangeOrganization
-                                    ParentPermissionIdentity = $gp.PermissionIdentity
+                                    IsInherited = $gp.IsInherited
                                 }
-                                $rawEP = New-PermissionExportObject @GPEOParams
-                                Add-TrusteeAttributesToPermissionExportObject -rawPermissionExportObject $rawEP -TrusteeRecipientObject $Recipient
-                                Write-Output $rawEP
-                                $DistinguishedNameHash.$uDN = $Recipient
-                            }#1
-                            Default
+                                New-PermissionExportObject @npeoParams
+                            }#end $true
+                            $false
                             {
-                                $GPEOParams = @{
-                                    TargetMailbox = $ISR
-                                    TrusteeIdentity = "$uDN"
-                                    PermissionType = $gp.PermissionType
-                                    AssignmentType = 'GroupMembership'
-                                    TrusteeGroupObjectGUID = $gp.TrusteeObjectGUID
-                                    SourceExchangeOrganization = $ExchangeOrganization
-                                    ParentPermissionIdentity = $gp.PermissionIdentity
+                                if (-not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
+                                {
+                                    $npeoParams = @{
+                                        TargetMailbox = $TargetMailbox
+                                        TrusteeIdentity = $TrusteeIdentity
+                                        TrusteeRecipientObject = $trusteeRecipient
+                                        PermissionType = $gp.PermissionType
+                                        AssignmentType = 'GroupMembership'
+                                        SourceExchangeOrganization = $ExchangeOrganization
+                                        IsInherited = $gp.IsInherited
+                                    }
+                                    New-PermissionExportObject @npeoParams
                                 }
-                                $rawEP = New-PermissionExportObject @GPEOParams
-                                Add-TrusteeAttributesToPermissionExportObject -rawPermissionExportObject $rawEP -TrusteeRecipientObject $null
-                                $MissingOrAmbiguousRecipients += $rp.TrusteeIdentity
-                            }#Default
-                        }#switch Recipient.Count
-                    }#foreach u in lstusr
-                }#foreach gp in groupPerms
+                            }#end $false
+                        }#end switch
+                    }#end foreach (user)
+                }#end foreach (permission)
             )#expandedPermissions
-            if ($dropExpandedGroups)
+            if ($expandedPermissions.Count -ge 1)
             {
-                $rawPermissions = $rawPermissions | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -notlike '*group*'}
+                #remove any self permissions that came in through expansion
+                $expandedPermissions = @($expandedPermissions | Where-Object -FilterScript {$_.TargetObjectGUID -ne $_.TrusteeObjectGUID})
             }
-        }#end if ($expandGropus)
-        #combine and remove and self permissions that came in through expansion or otherwise
-        if ($expandedPermissions.Count -ge 1)
-        {$AllPermissionsOutput = $expandedPermissions + $rawPermissions | Where-Object -FilterScript {$_.TargetObjectGUID -ne $_.TrusteeObjectGUID}}
+            if ($dropExpandedParentGroupPermissions)
+            {
+                Write-Output -InputObject @($ngPermissions;$expandedPermissions)
+            }
+            else
+            {
+                Write-Output -InputObject @($ngPermissions;$gPermissions;$expandedPermissions)
+            }
+        }
         else
-        {$AllPermissionsOutput = $rawPermissions | Where-Object -FilterScript {$_.TargetObjectGUID -ne $_.TrusteeObjectGUID}}
-        #remove permissions from excludedPermissionHolders if needed
-        if ($PSBoundParameters.ContainsKey('ExcludedIdentities') -or $PSBoundParameters.ContainsKey('ExcludedTrusteeIdentities'))
         {
-            $AllPermissionsOutput = @(
-                $AllPermissionsOutput | Where-Object -FilterScript {
-                    (-not $excludedRecipientGUIDHash.ContainsKey($($_.TargetObjectGUID)) -and -not $excludedTrusteeGUIDHash.ContainsKey($_.TrusteeObjectGUID))
-                }
-            )
+            Write-output -inputobject $permission
         }
     }
 #end Function Expand-GroupPermission
@@ -259,57 +348,70 @@ function Get-TrusteeObject
             [hashtable]$DomainPrincipalHash
             ,
             [hashtable]$SIDHistoryHash
+            ,
+            $ExchangeSession
+            ,
+            $ExchangeOrganizationIsInExchangeOnline
         )
         $trusteeObject = $(
+            $AddToLookup = $null
+            Write-Verbose -Verbose -Message "Getting Object for TrusteeIdentity $TrusteeIdentity"
             switch ($TrusteeIdentity)
             {
                 {$ObjectGUIDHash.ContainsKey($_)}
                 {
                     $ObjectGUIDHash.$($_)
+                    Write-Verbose -Verbose -Message 'Found Trustee in ObjectGUIDHash'
                     break
                 }
                 {$DomainPrincipalHash.ContainsKey($_)}
                 {
                     $DomainPrincipalHash.$($_)
-                    break
-                }
-                {$DistinguishedNameHash.ContainsKey($_)}
-                {
-                    $DistinguishedNameHash.$($_)
+                    Write-Verbose -Verbose -Message 'Found Trustee in DomainPrincipalHash'
                     break
                 }
                 {$SIDHistoryHash.ContainsKey($_)}
                 {
                     $SIDHistoryHash.$($_)
+                    Write-Verbose -Verbose -Message 'Found Trustee in SIDHistoryHash'
                     break
                 }
                 Default
                 {
-                    $splat = @{
-                        Identity = $TrusteeIdentity
-                        ErrorAction = 'SilentlyContinue'
-                    }
-                    Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
-                    if ($null -eq $AddToLookup)
+                    if ($ExchangeOrganizationIsInExchangeOnline -and $TrusteeIdentity -like '*\*')
                     {
-                        Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
+                        $trusteeObject = $null
                     }
-                    if ($null -eq $AddToLookup)
+                    else
                     {
-                        Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-User @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
+                        $splat = @{
+                            Identity = $TrusteeIdentity
+                            ErrorAction = 'SilentlyContinue'
+                        }
+                        Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
+                        if ($null -eq $AddToLookup)
+                        {
+                            Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
+                        }
+                        if ($null -eq $AddToLookup)
+                        {
+                            Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-User @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
+                        }
                     }
                 }
             }
         )
         #if we found a 'new' object add it to the lookup hashtables
-        if ($null -ne $AddToLookup)
+        if ($null -ne $AddToLookup -and $AddToLookup.count -gt 0)
         {
+            Write-Verbose -Verbose -Message "Found Trustee $TrusteeIdentity via new lookup"
             $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$ObjectGUIDHash.$($_.ExchangeGuid.Guid) = $_} -ErrorAction SilentlyContinue
+            Write-Verbose -Verbose -Message "ObjectGUIDHash Count is $($ObjectGUIDHash.count)"
             $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$ObjectGUIDHash.$($_.Guid.Guid) = $_} -ErrorAction SilentlyContinue
-            $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$DistinguishedNameHash.$($_.DistinguishedName) = $_} -ErrorAction SilentlyContinue
             if ($TrusteeIdentity -like '*\*' -or $TrusteeIdentity -like '*@*')
             {
                 $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$DomainPrincipalHash.$($TrusteeIdentity) = $_} -ErrorAction SilentlyContinue
+                Write-Verbose -Verbose -Message "DomainPrincipalHash Count is $($DomainPrincipalHash.count)"
             }
         }
         Write-Output -InputObject $trusteeObject
@@ -347,31 +449,39 @@ Function Get-SendOnBehalfPermission
             $sbTrustees = Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Mailbox @using:splat | Select-Object -ExpandProperty GrantSendOnBehalfTo}
             foreach ($sb in $sbTrustees)
             {
-                $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sb.objectguid.guid -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash
-                if ($null -ne $trusteeRecipient -and -not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
+                $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sb.objectguid.guid -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+                switch ($null -eq $trusteeRecipient)
                 {
-                    $npeoParams = @{
-                        TargetMailbox = $TargetMailbox
-                        TrusteeIdentity = $sb.objectguid.guid
-                        TrusteeRecipientObject = $trusteeRecipient
-                        PermissionType = 'SendOnBehalf'
-                        AssignmentType = if ($trusteeRecipient.RecipientTypeDetails -like '*group*') {'GroupMembership'} else {'Direct'}
-                        SourceExchangeOrganization = $ExchangeOrganization
-                    }
-                }
-                else
-                {
-                    $npeoParams = @{
-                        TargetMailbox = $TargetMailbox
-                        TrusteeIdentity = $sb.objectguid.guid
-                        TrusteeRecipientObject = $null
-                        PermissionType = 'SendOnBehalf'
-                        AssignmentType = 'Direct'
-                        SourceExchangeOrganization = $ExchangeOrganization
-                    }
-                }
-                $pexo = New-PermissionExportObject @npeoParams
-                Write-Output -inputobject $pexo
+                    $true
+                    {
+                        $npeoParams = @{
+                            TargetMailbox = $TargetMailbox
+                            TrusteeIdentity = $sb.objectguid.guid
+                            TrusteeRecipientObject = $null
+                            PermissionType = 'SendOnBehalf'
+                            AssignmentType = 'Undetermined'
+                            SourceExchangeOrganization = $ExchangeOrganization
+                            IsInherited = $false
+                        }
+                        New-PermissionExportObject @npeoParams
+                    }#end $true
+                    $false
+                    {
+                        if (-not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
+                        {
+                            $npeoParams = @{
+                                TargetMailbox = $TargetMailbox
+                                TrusteeIdentity = $sb.objectguid.guid
+                                TrusteeRecipientObject = $trusteeRecipient
+                                PermissionType = 'SendOnBehalf'
+                                AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
+                                SourceExchangeOrganization = $ExchangeOrganization
+                                IsInherited = $false
+                            }
+                            New-PermissionExportObject @npeoParams
+                        }
+                    }#end $false
+                }#end switch
             }#end foreach
         }
     }
@@ -411,33 +521,39 @@ function Get-FullAccessPermission
         foreach ($fa in $faRawPermissions)
         {
             $user = $fa.User
-            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $user -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash
-            if ($null -ne $trusteeRecipient -and -not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
+            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $user -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+            switch ($null -eq $trusteeRecipient)
             {
-                $npeoParams = @{
-                    TargetMailbox = $TargetMailbox
-                    TrusteeIdentity = $user
-                    TrusteeRecipientObject = $trusteeRecipient
-                    PermissionType = 'FullAccess'
-                    AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
-                    IsInherited = $fa.$IsInherited
-                    SourceExchangeOrganization = $ExchangeOrganization
-                }
-            }
-            else
-            {
-                $npeoParams = @{
-                    TargetMailbox = $TargetMailbox
-                    TrusteeIdentity = $User
-                    TrusteeRecipientObject = $null
-                    PermissionType = 'FullAccess'
-                    AssignmentType = 'Direct'
-                    IsInherited = $fa.$IsInherited
-                    SourceExchangeOrganization = $ExchangeOrganization
-                }
-            }
-            $pexo = New-PermissionExportObject @npeoParams
-            Write-Output -inputobject $pexo
+                $true
+                {
+                    $npeoParams = @{
+                        TargetMailbox = $TargetMailbox
+                        TrusteeIdentity = $User
+                        TrusteeRecipientObject = $null
+                        PermissionType = 'FullAccess'
+                        AssignmentType = 'Undetermined'
+                        IsInherited = $fa.IsInherited
+                        SourceExchangeOrganization = $ExchangeOrganization
+                    }
+                    New-PermissionExportObject @npeoParams
+                }#end $true
+                $false
+                {
+                    if (-not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
+                    {
+                        $npeoParams = @{
+                            TargetMailbox = $TargetMailbox
+                            TrusteeIdentity = $user
+                            TrusteeRecipientObject = $trusteeRecipient
+                            PermissionType = 'FullAccess'
+                            AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
+                            IsInherited = $fa.IsInherited
+                            SourceExchangeOrganization = $ExchangeOrganization
+                        }
+                        New-PermissionExportObject @npeoParams
+                    }
+                }#end $false
+            }#end switch
         }#end foreach fa
     }
 #end function Get-FullAccessPermission
@@ -496,25 +612,45 @@ function Get-SendASPermissionsViaExchange
         {
             $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript {$_.IsInherited -eq $false})
         }
-        #Lookup Trustee Recipients and export permission if found
         $IdentityProperty = switch ($ExchangeOrganizationIsInExchangeOnline) {$true {'Trustee'} $false {'User'}}
+        #Drop Self Permissions
+        $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript {$_.$IdentityProperty -ne 'NT AUTHORITY\SELF'})
+        #Lookup Trustee Recipients and export permission if found
         foreach ($sa in $saRawPermissions)
         {
-            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sa.$IdentityProperty -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash
-            if ($null -ne $trusteeRecipient -and -not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
+            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sa.$IdentityProperty -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+            switch ($null -eq $trusteeRecipient)
             {
-                $npeoParams = @{
-                    TargetMailbox = $TargetMailbox
-                    TrusteeIdentity = $sa.$IdentityProperty
-                    TrusteeRecipientObject = $trusteeRecipient
-                    PermissionType = 'SendAs'
-                    AssignmentType = if ($trusteeRecipient.RecipientTypeDetails -like '*group*') {'GroupMembership'} else {'Direct'}
-                    SourceExchangeOrganization = $ExchangeOrganization
-                    IsInherited = $sa.IsInherited
-                }
-                $pexo = New-PermissionExportObject @npeoParams
-                Write-Output -inputobject $pexo
-            }
+                $true
+                {
+                    $npeoParams = @{
+                        TargetMailbox = $TargetMailbox
+                        TrusteeIdentity = $sa.$IdentityProperty
+                        TrusteeRecipientObject = $null
+                        PermissionType = 'SendAs'
+                        AssignmentType = 'Undetermined'
+                        IsInherited = $sa.IsInherited
+                        SourceExchangeOrganization = $ExchangeOrganization
+                    }
+                    New-PermissionExportObject @npeoParams
+                }#end $true
+                $false
+                {
+                    if (-not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
+                    {
+                        $npeoParams = @{
+                            TargetMailbox = $TargetMailbox
+                            TrusteeIdentity = $sa.$IdentityProperty
+                            TrusteeRecipientObject = $trusteeRecipient
+                            PermissionType = 'SendAs'
+                            AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
+                            IsInherited = $sa.IsInherited
+                            SourceExchangeOrganization = $ExchangeOrganization
+                        }
+                        New-PermissionExportObject @npeoParams
+                    }
+                }#end $false
+            }#end switch
         }#end foreach
     }
 #end function Get-SendASPermissionViaExchange
@@ -554,25 +690,45 @@ function Get-SendASPermisssionsViaLocalLDAP
         {
             $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript {$_.IsInherited -eq $false})
         }
-        #Lookup Trustee Recipients and export permission if found
         $IdentityProperty = switch ($ExchangeOrganizationIsInExchangeOnline) {$true {'Trustee'} $false {'User'}}
+        #Drop Self Permissions
+        $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript {$_.$IdentityProperty -ne 'NT AUTHORITY\SELF'})
+        #Lookup Trustee Recipients and export permission if found
         foreach ($sa in $saRawPermissions)
         {
-            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sa.$IdentityProperty -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash
-            if ($null -ne $trusteeRecipient -and -not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
+            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sa.$IdentityProperty -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+            switch ($null -eq $trusteeRecipient)
             {
-                $npeoParams = @{
-                    TargetMailbox = $TargetMailbox
-                    TrusteeIdentity = $sa.$IdentityProperty
-                    TrusteeRecipientObject = $trusteeRecipient
-                    PermissionType = 'SendAs'
-                    AssignmentType = if ($trusteeRecipient.RecipientTypeDetails -like '*group*') {'GroupMembership'} else {'Direct'}
-                    SourceExchangeOrganization = $ExchangeOrganization
-                    IsInherited = $sa.IsInherited
-                }
-                $pexo = New-PermissionExportObject @npeoParams
-                Write-Output -inputobject $pexo
-            }
+                $true
+                {
+                    $npeoParams = @{
+                        TargetMailbox = $TargetMailbox
+                        TrusteeIdentity = $sa.$IdentityProperty
+                        TrusteeRecipientObject = $null
+                        PermissionType = 'SendAs'
+                        AssignmentType = 'Undetermined'
+                        IsInherited = $sa.IsInherited
+                        SourceExchangeOrganization = $ExchangeOrganization
+                    }
+                    New-PermissionExportObject @npeoParams
+                }#end $true
+                $false
+                {
+                    if (-not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
+                    {
+                        $npeoParams = @{
+                            TargetMailbox = $TargetMailbox
+                            TrusteeIdentity = $sa.$IdentityProperty
+                            TrusteeRecipientObject = $trusteeRecipient
+                            PermissionType = 'SendAs'
+                            AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
+                            IsInherited = $sa.IsInherited
+                            SourceExchangeOrganization = $ExchangeOrganization
+                        }
+                        New-PermissionExportObject @npeoParams
+                    }
+                }#end $false
+            }#end switch
         }#end foreach
     }
 #end function Get-SendASPermissionsViaLocalLDAP
@@ -640,9 +796,9 @@ Function Export-ExchangePermission
             ,
             [bool]$expandGroups = $true
             ,
-            [bool]$dropExpandedGroups = $false
+            [bool]$dropExpandedParentGroupPermissions = $false
             ,
-            [bool]$dropInheritedPermissions = $false #Currently Functional Only For Send-As, though this function is hard-coded to ignore inherited FMB and inherited SendOnBehalf is not possible.
+            [bool]$dropInheritedPermissions = $false
             ,
             [bool]$IncludeSIDHistory = $false
             ,
@@ -820,11 +976,7 @@ Function Export-ExchangePermission
             }
             if ($expandGroups -eq $true)
             {
-                $DistinguishedNameHash = $InScopeRecipients | Select-object -property $HRPropertySet | Group-Object -AsHashTable -Property DistinguishedName -AsString
-            }
-            else
-            {
-                $DistinguishedNameHash = @{}
+                $script:ExpandedGroupsNonGroupMembershipHash = @{}
             }
             #this one has to be populated as we go
             $DomainPrincipalHash = @{}
@@ -848,15 +1000,18 @@ Function Export-ExchangePermission
                 $PermissionExportObjects = @(
                     If (($IncludeSendOnBehalf) -and (!($GlobalSendAs)))
                     {
+                        Write-Verbose -Message "Getting SendOnBehalf Permissions for Target $ID"
                         Get-SendOnBehalfPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -ExcludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -HRPropertySet $HRPropertySet
                     }
                     If (($IncludeFullAccess) -and (!($GlobalSendAs)))
                     {
-                        Get-FullAccessPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet
+                        Write-Verbose -Message "Getting FullAccess Permissions for Target $ID"
+                        Get-FullAccessPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -dropInheritedPermissions $dropInheritedPermissions
                     }
                     #Get Send As Users
                     If (($IncludeSendAs) -or ($GlobalSendAs))
                     {
+                        Write-Verbose -Message "Getting SendAS Permissions for Target $ID"
                         if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsInsteadOfADOrLDAP)
                         {
                             #add code to check session
@@ -870,7 +1025,19 @@ Function Export-ExchangePermission
                 )
                 if ($expandGroups -eq $true)
                 {
-
+                    $splat = @{
+                        Permission = $PermissionExportObjects
+                        ObjectGUIDHash = $ObjectGUIDHash
+                        SIDHistoryHash = $SIDHistoryRecipientHash
+                        excludedTrusteeGUIDHash = $excludedTrusteeGUIDHash
+                        HRPropertySet = $HRPropertySet
+                        exchangeSession = $ExchangeSession
+                    }
+                    if ($dropExpandedParentGroupPermissions -eq $true)
+                    {$splat.dropExpandedParentGroupPermissions = $true}
+                    if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsInsteadOfADOrLDAP)
+                    {$splat.UseExchangeCommandsInsteadOfADOrLDAP = $true}
+                    $PermissionExportObjects = @(Expand-GroupPermission @splat)
                 }
                 if ($PermissionExportObjects.Count -eq 0 -and -not $ExcludeNonePermissionOutput -eq $true)
                 {
@@ -886,13 +1053,12 @@ Function Export-ExchangePermission
                     $NonPerm = New-PermissionExportObject @GPEOParams
                     Write-Output $NonPerm
                 }
-                elseif ($AllPermissionsOutput.Count -gt 0)
+                elseif ($PermissionExportObjects.Count -gt 0)
                 {
-                    Write-Output $AllPermissionsOutput
+                    Write-Output $PermissionExportObjects
                 }
                 Write-Log -Message $message -EntryType Succeeded
             }#Foreach recipient in set
-
         }#end End
     }
 #End Function Export-ExchangePermission

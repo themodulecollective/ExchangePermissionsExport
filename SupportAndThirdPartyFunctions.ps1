@@ -198,6 +198,16 @@ function Test-StringIsConvertibleToGUID
 }
 #end function Test-StringIsConvertibleToGUID
 
+function Get-GuidFromByteArray
+    {
+        [CmdletBinding()]
+        param
+        (
+            [byte[]]$GuidByteArray
+        )
+        New-Object -TypeName guid -ArgumentList (,$GuidByteArray)
+    }
+#end function Get-GUIDFromByteArray
 Function Write-Log
 {
     [cmdletbinding()]
