@@ -118,7 +118,7 @@ function Expand-GroupPermission
                         {
                             #if so, get the terminal trustee objects from the expansion hashtable
                             $UserTrustees = $script:ExpandedGroupsNonGroupMembershipHash.$($gp.TrusteeObjectGUID)
-                            Write-Verbose -Message "Previously Expanded Group $($gp.TrusteeObjectGUID) Members Count: $($userTrustees.count)" -EntryType Notification
+                            Write-Verbose -Message "Previously Expanded Group $($gp.TrusteeObjectGUID) Members Count: $($userTrustees.count)"
                         }
                         $false
                         {
@@ -133,32 +133,17 @@ function Expand-GroupPermission
                             }
                             #and add them to the expansion hashtable
                             $script:ExpandedGroupsNonGroupMembershipHash.$($gp.TrusteeObjectGUID) = $UserTrustees
-                            Write-Verbose -Message "Newly Expanded Group $($gp.TrusteeObjectGUID) Members Count: $($userTrustees.count)" -EntryType Notification
+                            Write-Verbose -Message "Newly Expanded Group $($gp.TrusteeObjectGUID) Members Count: $($userTrustees.count)"
                         }
                     }
                     foreach ($u in $UserTrustees)
                     {
-                        if ($UseExchangeCommandsInsteadOfADOrLDAP -eq $true)
-                        {
-                            $trusteeRecipient = $u
-                        }
-                        else
-                        {
-                        }
+                        $trusteeRecipient = $u
                         switch ($null -eq $trusteeRecipient)
                         {
                             $true
                             {
-                                $npeoParams = @{
-                                    TargetMailbox = $TargetMailbox
-                                    TrusteeIdentity = $TrusteeIdentity
-                                    TrusteeRecipientObject = $null
-                                    PermissionType = $gp.PermissionType
-                                    AssignmentType = 'GroupMembership'
-                                    SourceExchangeOrganization = $ExchangeOrganization
-                                    IsInherited = $gp.IsInherited
-                                }
-                                New-PermissionExportObject @npeoParams
+                                #no point in doing anything here
                             }#end $true
                             $false
                             {
@@ -166,12 +151,14 @@ function Expand-GroupPermission
                                 {
                                     $npeoParams = @{
                                         TargetMailbox = $TargetMailbox
-                                        TrusteeIdentity = $TrusteeIdentity
+                                        TrusteeIdentity = $trusteeRecipient.guid.guid
                                         TrusteeRecipientObject = $trusteeRecipient
+                                        TrusteeGroupObjectGUID = $gp.TrusteeObjectGUID
                                         PermissionType = $gp.PermissionType
                                         AssignmentType = 'GroupMembership'
                                         SourceExchangeOrganization = $ExchangeOrganization
                                         IsInherited = $gp.IsInherited
+                                        ParentPermissionIdentity = $gp.PermissionIdentity
                                     }
                                     New-PermissionExportObject @npeoParams
                                 }
