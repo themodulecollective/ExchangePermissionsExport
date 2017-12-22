@@ -18,6 +18,8 @@ function Get-GroupMemberExpandedViaExchange
         ,
         $SIDHistoryRecipientHash
         ,
+        $UnFoundIdentitiesHash
+        ,
         [int]$iterationLimit = 100
     )
     Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
@@ -27,7 +29,7 @@ function Get-GroupMemberExpandedViaExchange
     }
     $BaseGroupMemberIdentities = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members})
     Write-Verbose -Message "Got $($BaseGroupmemberIdentities.Count) Base Group Members for Group $Identity"
-    $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {Get-TrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline})
+    $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {Get-TrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash})
     $iteration = 0
     $AllResolvedMembers = @(
         do
@@ -37,7 +39,7 @@ function Get-GroupMemberExpandedViaExchange
             $RemainingGroupMembers =  @($BaseGroupMembership | Where-Object -FilterScript {$_.RecipientTypeDetails -like '*group*'})
             Write-Verbose -Message "Got $($RemainingGroupMembers.Count) Remaining Nested Group Members for Group $identity.  Iteration: $iteration"
             $BaseGroupMemberIdentities = @($RemainingGroupMembers | ForEach-Object {$splat = @{Identity = $_.guid.guid;ErrorAction = 'Stop'};invoke-command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members}})
-            $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {Get-TrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline})
+            $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {Get-TrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash})
             Write-Verbose -Message "Got $($baseGroupMembership.count) Newly Explanded Group Members for Group $identity"
         }
         until ($BaseGroupMembership.count -eq 0 -or $iteration -ge $iterationLimit)
@@ -75,7 +77,7 @@ function Get-GroupMemberExpandedViaLocalLDAP
     foreach ($u in $TrusteeUserObjects)
     {
         $TrusteeIdentity = $(Get-GuidFromByteArray -GuidByteArray $($u.Properties.objectguid)).guid
-        $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $TrusteeIdentity -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+        $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $TrusteeIdentity -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
         if ($null -ne $trusteeRecipient)
         {Write-Output -InputObject $trusteeRecipient}
     }
@@ -346,31 +348,38 @@ function Get-TrusteeObject
             ,
             [hashtable]$SIDHistoryHash
             ,
+            [hashtable]$UnfoundIdentitiesHash
+            ,
             $ExchangeSession
             ,
             $ExchangeOrganizationIsInExchangeOnline
         )
         $trusteeObject = $(
             $AddToLookup = $null
-            Write-Verbose -Verbose -Message "Getting Object for TrusteeIdentity $TrusteeIdentity"
+            Write-Verbose -Message "Getting Object for TrusteeIdentity $TrusteeIdentity"
             switch ($TrusteeIdentity)
             {
+                {$UnfoundIdentitiesHash.ContainsKey($_)}
+                {
+                    Write-Output -InputObject $null
+                    break
+                }
                 {$ObjectGUIDHash.ContainsKey($_)}
                 {
                     $ObjectGUIDHash.$($_)
-                    Write-Verbose -Verbose -Message 'Found Trustee in ObjectGUIDHash'
+                    Write-Verbose -Message 'Found Trustee in ObjectGUIDHash'
                     break
                 }
                 {$DomainPrincipalHash.ContainsKey($_)}
                 {
                     $DomainPrincipalHash.$($_)
-                    Write-Verbose -Verbose -Message 'Found Trustee in DomainPrincipalHash'
+                    Write-Verbose -Message 'Found Trustee in DomainPrincipalHash'
                     break
                 }
                 {$SIDHistoryHash.ContainsKey($_)}
                 {
                     $SIDHistoryHash.$($_)
-                    Write-Verbose -Verbose -Message 'Found Trustee in SIDHistoryHash'
+                    Write-Verbose -Message 'Found Trustee in SIDHistoryHash'
                     break
                 }
                 {$null -eq $TrusteeIdentity}
@@ -416,6 +425,11 @@ function Get-TrusteeObject
                 Write-Verbose -Verbose -Message "DomainPrincipalHash Count is $($DomainPrincipalHash.count)"
             }
         }
+        #if we found nothing, add the Identity to the UnfoundIdentitiesHash
+        if ($null -eq $trusteeObject -and $null -ne $TrusteeIdentity -and -not [string]::IsNullOrEmpty($TrusteeIdentity) -and -not $UnfoundIdentitiesHash.ContainsKey($TrusteeIdentity))
+        {
+            $UnfoundIdentitiesHash.$TrusteeIdentity = $null
+        }
         Write-Output -InputObject $trusteeObject
     }
 #end function Get-TrusteeObject
@@ -451,7 +465,7 @@ Function Get-SendOnBehalfPermission
             $sbTrustees = Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Mailbox @using:splat | Select-Object -ExpandProperty GrantSendOnBehalfTo}
             foreach ($sb in $sbTrustees)
             {
-                $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sb.objectguid.guid -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+                $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sb.objectguid.guid -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
                 switch ($null -eq $trusteeRecipient)
                 {
                     $true
@@ -523,7 +537,7 @@ function Get-FullAccessPermission
         foreach ($fa in $faRawPermissions)
         {
             $user = $fa.User
-            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $user -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $user -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
             switch ($null -eq $trusteeRecipient)
             {
                 $true
@@ -620,7 +634,7 @@ function Get-SendASPermissionsViaExchange
         #Lookup Trustee Recipients and export permission if found
         foreach ($sa in $saRawPermissions)
         {
-            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sa.$IdentityProperty -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sa.$IdentityProperty -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
             switch ($null -eq $trusteeRecipient)
             {
                 $true
@@ -698,7 +712,7 @@ function Get-SendASPermisssionsViaLocalLDAP
         #Lookup Trustee Recipients and export permission if found
         foreach ($sa in $saRawPermissions)
         {
-            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sa.$IdentityProperty -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sa.$IdentityProperty -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
             switch ($null -eq $trusteeRecipient)
             {
                 $true
@@ -980,8 +994,9 @@ Function Export-ExchangePermission
             {
                 $script:ExpandedGroupsNonGroupMembershipHash = @{}
             }
-            #this one has to be populated as we go
+            #these have to be populated as we go
             $DomainPrincipalHash = @{}
+            $UnfoundIdentitiesHash = @{}
             #EndRegion BuildLookupHashtables
 
             #Set Up to Loop through Mailboxes/Recipients
