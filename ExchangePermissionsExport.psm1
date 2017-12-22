@@ -99,7 +99,6 @@ function Expand-GroupPermission
             [switch]$UseExchangeCommandsInsteadOfADOrLDAP
         )
         Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
-        Write-Log -Message "Calling Invocation = $($MyInvocation.Line)" -EntryType Notification
         $gPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -like '*Group*'})
         $ngPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -notlike '*Group*' -or $null -eq $_.TrusteeRecipientTypeDetails})
         if ($gPermissions.Count -ge 1)
@@ -107,6 +106,7 @@ function Expand-GroupPermission
             $expandedPermissions = @(
                 foreach ($gp in $gPermissions)
                 {
+                    Write-Verbose -Message "Expanding Group $($gp.TrusteeObjectGUID)"
                     #check if we have already expanded this group . . . 
                     switch ($script:ExpandedGroupsNonGroupMembershipHash.ContainsKey($gp.TrusteeObjectGUID))
                     {
@@ -114,6 +114,7 @@ function Expand-GroupPermission
                         {
                             #if so, get the terminal trustee objects from the expansion hashtable
                             $UserTrustees = $script:ExpandedGroupsNonGroupMembershipHash.$($gp.TrusteeObjectGUID)
+                            Write-Verbose -Message "Previously Expanded Group $($gp.TrusteeObjectGUID) Members Count: $($userTrustees.count)" -EntryType Notification
                         }
                         $false
                         {
@@ -128,6 +129,7 @@ function Expand-GroupPermission
                             }
                             #and add them to the expansion hashtable
                             $script:ExpandedGroupsNonGroupMembershipHash.$($gp.TrusteeObjectGUID) = $UserTrustees
+                            Write-Verbose -Message "Newly Expanded Group $($gp.TrusteeObjectGUID) Members Count: $($userTrustees.count)" -EntryType Notification
                         }
                     }
                     foreach ($u in $UserTrustees)
