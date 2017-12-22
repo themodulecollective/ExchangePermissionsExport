@@ -63,6 +63,10 @@ function Get-GroupMemberExpandedViaLocalLDAP
         $DomainPrincipalHash
         ,
         $SIDHistoryRecipientHash
+        ,
+        [hashtable]$UnfoundIdentitiesHash
+        ,
+        $ExchangeOrganizationIsInExchangeOnline
     )
     if (-not (Test-Path -Path variable:script:dsLookFor))
     {
@@ -98,6 +102,8 @@ function Expand-GroupPermission
             ,
             $excludedTrusteeGUIDHash
             ,
+            [hashtable]$UnfoundIdentitiesHash
+            ,
             $HRPropertySet
             ,
             $exchangeSession
@@ -129,11 +135,11 @@ function Expand-GroupPermission
                             #if not, get the terminal trustee objects now
                             if ($UseExchangeCommandsInsteadOfADOrLDAP -eq $true)
                             {
-                                $UserTrustees = @(Get-GroupMemberExpandedViaExchange -Identity $gp.TrusteeObjectGUID -ExchangeSession $exchangeSession -hrPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryRecipientHash $SIDHistoryRecipientHash)
+                                $UserTrustees = @(Get-GroupMemberExpandedViaExchange -Identity $gp.TrusteeObjectGUID -ExchangeSession $exchangeSession -hrPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryRecipientHash $SIDHistoryRecipientHash -UnFoundIdentitiesHash $UnfoundIdentitiesHash -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline)
                             }
                             else
                             {
-                                $UserTrustees = @(Get-GroupMemberExpandedViaLocalLDAP -Identity $gp.TrusteeDistinguishedName -ExchangeSession $exchangeSession -hrPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryRecipientHash $SIDHistoryRecipientHash)
+                                $UserTrustees = @(Get-GroupMemberExpandedViaLocalLDAP -Identity $gp.TrusteeDistinguishedName -ExchangeSession $exchangeSession -hrPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryRecipientHash $SIDHistoryRecipientHash -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnfoundIdentitiesHash)
                             }
                             #and add them to the expansion hashtable
                             $script:ExpandedGroupsNonGroupMembershipHash.$($gp.TrusteeObjectGUID) = $UserTrustees
@@ -449,6 +455,8 @@ Function Get-SendOnBehalfPermission
             ,
             [hashtable]$excludedTrusteeGUIDHash
             ,
+            [hashtable]$UnfoundIdentitiesHash
+            ,
             $ExchangeOrganization
             ,
             $HRPropertySet #Property set for recipient object inclusion in object lookup hashtables
@@ -518,6 +526,8 @@ function Get-FullAccessPermission
             [bool]$dropInheritedPermissions
             ,
             [hashtable]$DomainPrincipalHash
+            ,
+            [hashtable]$UnfoundIdentitiesHash
             ,
             $ExchangeOrganization
             ,
@@ -589,6 +599,8 @@ function Get-SendASPermissionsViaExchange
             [bool]$dropInheritedPermissions
             ,
             [hashtable]$DomainPrincipalHash
+            ,
+            [hashtable]$UnfoundIdentitiesHash
             ,
             $ExchangeOrganization
             ,
@@ -686,6 +698,8 @@ function Get-SendASPermisssionsViaLocalLDAP
             [bool]$dropInheritedPermissions
             ,
             [hashtable]$DomainPrincipalHash
+            ,
+            [hashtable]$UnfoundIdentitiesHash
             ,
             $ExchangeOrganization
             ,
@@ -1018,12 +1032,12 @@ Function Export-ExchangePermission
                     If (($IncludeSendOnBehalf) -and (!($GlobalSendAs)))
                     {
                         Write-Verbose -Message "Getting SendOnBehalf Permissions for Target $ID"
-                        Get-SendOnBehalfPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -ExcludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -HRPropertySet $HRPropertySet
+                        Get-SendOnBehalfPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -ExcludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -HRPropertySet $HRPropertySet -DomainPrincipalHash $DomainPrincipalHash -UnfoundIdentitiesHash $UnfoundIdentitiesHash
                     }
                     If (($IncludeFullAccess) -and (!($GlobalSendAs)))
                     {
                         Write-Verbose -Message "Getting FullAccess Permissions for Target $ID"
-                        Get-FullAccessPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -dropInheritedPermissions $dropInheritedPermissions
+                        Get-FullAccessPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -dropInheritedPermissions $dropInheritedPermissions -UnfoundIdentitiesHash $UnfoundIdentitiesHash
                     }
                     #Get Send As Users
                     If (($IncludeSendAs) -or ($GlobalSendAs))
@@ -1032,12 +1046,12 @@ Function Export-ExchangePermission
                         if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsInsteadOfADOrLDAP)
                         {
                             Write-Verbose -Message "Getting SendAS Permissions for Target $ID Via Exchange Commands"
-                            Get-SendASPermissionsViaExchange -TargetMailbox $ISR -ExchangeSession $ExchangeSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet
+                            Get-SendASPermissionsViaExchange -TargetMailbox $ISR -ExchangeSession $ExchangeSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
                         }
                         else
                         {
                             Write-Verbose -Message "Getting SendAS Permissions for Target $ID Via LDAP Commands"
-                            Get-SendASPermisssionsViaLocalLDAP -TargetMailbox $ISR -ExchangeSession $ExchangeSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedRecipientGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnlin $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet
+                            Get-SendASPermisssionsViaLocalLDAP -TargetMailbox $ISR -ExchangeSession $ExchangeSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedRecipientGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnlin $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
                         }
                     }
                 )
@@ -1049,6 +1063,7 @@ Function Export-ExchangePermission
                         ObjectGUIDHash = $ObjectGUIDHash
                         SIDHistoryHash = $SIDHistoryRecipientHash
                         excludedTrusteeGUIDHash = $excludedTrusteeGUIDHash
+                        UnfoundIdentitiesHash = $UnfoundIdentitiesHash
                         HRPropertySet = $HRPropertySet
                         exchangeSession = $ExchangeSession
                         TargetMailbox = $ISR
