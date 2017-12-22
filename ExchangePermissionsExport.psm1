@@ -88,6 +88,8 @@ function Expand-GroupPermission
         (
             [psobject[]]$Permission
             ,
+            $TargetMailbox
+            ,
             [hashtable]$ObjectGUIDHash
             ,
             [hashtable]$SIDHistoryHash
@@ -1034,6 +1036,7 @@ Function Export-ExchangePermission
                         excludedTrusteeGUIDHash = $excludedTrusteeGUIDHash
                         HRPropertySet = $HRPropertySet
                         exchangeSession = $ExchangeSession
+                        TargetMailbox = $ISR
                     }
                     if ($dropExpandedParentGroupPermissions -eq $true)
                     {$splat.dropExpandedParentGroupPermissions = $true}
