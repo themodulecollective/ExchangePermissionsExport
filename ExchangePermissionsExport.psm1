@@ -20,11 +20,13 @@ function Get-GroupMemberExpandedViaExchange
         ,
         [int]$iterationLimit = 100
     )
+    Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
     $splat = @{
         Identity = $Identity
         ErrorAction = 'Stop'
     }
     $BaseGroupMemberIdentities = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members})
+    Write-Verbose -Message "Got $($BaseGroupmemberIdentities.Count) Base Group Members for Group $Identity"
     $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {Get-TrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline})
     $iteration = 0
     $AllResolvedMembers = @(
@@ -378,6 +380,11 @@ function Get-TrusteeObject
                 {
                     $SIDHistoryHash.$($_)
                     Write-Verbose -Verbose -Message 'Found Trustee in SIDHistoryHash'
+                    break
+                }
+                {$null -eq $TrusteeIdentity}
+                {
+                    Write-Output -InputObject $null
                     break
                 }
                 Default
