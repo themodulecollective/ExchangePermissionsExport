@@ -98,6 +98,8 @@ function Expand-GroupPermission
             ,
             [switch]$UseExchangeCommandsInsteadOfADOrLDAP
         )
+        Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
+        Write-Log -Message "Calling Invocation = $($MyInvocation.Line)" -EntryType Notification
         $gPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -like '*Group*'})
         $ngPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -notlike '*Group*' -or $null -eq $_.TrusteeRecipientTypeDetails})
         if ($gPermissions.Count -ge 1)
@@ -1014,17 +1016,19 @@ Function Export-ExchangePermission
                         Write-Verbose -Message "Getting SendAS Permissions for Target $ID"
                         if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsInsteadOfADOrLDAP)
                         {
-                            #add code to check session
+                            Write-Verbose -Message "Getting SendAS Permissions for Target $ID Via Exchange Commands"
                             Get-SendASPermissionsViaExchange -TargetMailbox $ISR -ExchangeSession $ExchangeSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet
                         }
                         else
                         {
+                            Write-Verbose -Message "Getting SendAS Permissions for Target $ID Via LDAP Commands"
                             Get-SendASPermisssionsViaLocalLDAP -TargetMailbox $ISR -ExchangeSession $ExchangeSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedRecipientGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnlin $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet
                         }
                     }
                 )
                 if ($expandGroups -eq $true)
                 {
+                    Write-Verbose -Message "Expanding Group Based Permissions for Target $ID"
                     $splat = @{
                         Permission = $PermissionExportObjects
                         ObjectGUIDHash = $ObjectGUIDHash
