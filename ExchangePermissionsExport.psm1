@@ -1,202 +1,5 @@
 #should we look for forwarded mailboxes?
-function Get-GroupMemberExpandedViaExchange
-{
-    [CmdletBinding()]
-    param
-    (
-        [string]$Identity
-        ,
-        $ExchangeSession
-        ,
-        $ExchangeOrganizationIsInExchangeOnline
-        ,
-        $hrPropertySet
-        ,
-        $ObjectGUIDHash
-        ,
-        $DomainPrincipalHash
-        ,
-        $SIDHistoryRecipientHash
-        ,
-        $UnFoundIdentitiesHash
-        ,
-        [int]$iterationLimit = 100
-    )
-    Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
-    $splat = @{
-        Identity = $Identity
-        ErrorAction = 'Stop'
-    }
-    $BaseGroupMemberIdentities = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members})
-    Write-Verbose -Message "Got $($BaseGroupmemberIdentities.Count) Base Group Members for Group $Identity"
-    $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {Get-TrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash})
-    $iteration = 0
-    $AllResolvedMembers = @(
-        do
-        {
-            $iteration++
-            $BaseGroupMembership | Where-Object -FilterScript {$_.RecipientTypeDetails -notlike '*group*'}
-            $RemainingGroupMembers =  @($BaseGroupMembership | Where-Object -FilterScript {$_.RecipientTypeDetails -like '*group*'})
-            Write-Verbose -Message "Got $($RemainingGroupMembers.Count) Remaining Nested Group Members for Group $identity.  Iteration: $iteration"
-            $BaseGroupMemberIdentities = @($RemainingGroupMembers | ForEach-Object {$splat = @{Identity = $_.guid.guid;ErrorAction = 'Stop'};invoke-command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members}})
-            $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {Get-TrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash})
-            Write-Verbose -Message "Got $($baseGroupMembership.count) Newly Explanded Group Members for Group $identity"
-        }
-        until ($BaseGroupMembership.count -eq 0 -or $iteration -ge $iterationLimit)
-    )
-    Write-Output -InputObject $AllResolvedMembers
-}
-#end function Get-GroupMemberExpandedViaExchange
-function Get-GroupMemberExpandedViaLocalLDAP
-{
-    [CmdletBinding()]
-    param
-    (
-        [string]$Identity #distinguishedName
-        ,
-        $ExchangeSession
-        ,
-        $hrPropertySet
-        ,
-        $ObjectGUIDHash
-        ,
-        $DomainPrincipalHash
-        ,
-        $SIDHistoryRecipientHash
-        ,
-        [hashtable]$UnfoundIdentitiesHash
-        ,
-        $ExchangeOrganizationIsInExchangeOnline
-    )
-    if (-not (Test-Path -Path variable:script:dsLookFor))
-    {
-        #enumerate groups: http://stackoverflow.com/questions/8055338/listing-users-in-ad-group-recursively-with-powershell-script-without-cmdlets/8055996#8055996
-        $script:dse = [ADSI]"LDAP://Rootdse"
-        $script:dn = [ADSI]"LDAP://$($script:dse.DefaultNamingContext)"
-        $script:dsLookFor = New-Object System.DirectoryServices.DirectorySearcher($script:dn)
-        $script:dsLookFor.SearchScope = "subtree" 
-    }
-    $script:dsLookFor.Filter = "(&(memberof:1.2.840.113556.1.4.1941:=$($Identity))(objectCategory=user))"
-    $TrusteeUserObjects = @($dsLookFor.findall())
-    foreach ($u in $TrusteeUserObjects)
-    {
-        $TrusteeIdentity = $(Get-GuidFromByteArray -GuidByteArray $($u.Properties.objectguid)).guid
-        $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $TrusteeIdentity -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
-        if ($null -ne $trusteeRecipient)
-        {Write-Output -InputObject $trusteeRecipient}
-    }
-}
-#end function Get-GroupMemberExpandedViaExchange
-function Expand-GroupPermission
-    {
-        [CmdletBinding()]
-        param
-        (
-            [psobject[]]$Permission
-            ,
-            $TargetMailbox
-            ,
-            [hashtable]$ObjectGUIDHash
-            ,
-            [hashtable]$SIDHistoryHash
-            ,
-            $excludedTrusteeGUIDHash
-            ,
-            [hashtable]$UnfoundIdentitiesHash
-            ,
-            $HRPropertySet
-            ,
-            $exchangeSession
-            ,
-            $dropExpandedParentGroupPermissions
-            ,
-            [switch]$UseExchangeCommandsInsteadOfADOrLDAP
-        )
-        Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
-        $gPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -like '*Group*'})
-        $ngPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -notlike '*Group*' -or $null -eq $_.TrusteeRecipientTypeDetails})
-        if ($gPermissions.Count -ge 1)
-        {
-            $expandedPermissions = @(
-                foreach ($gp in $gPermissions)
-                {
-                    Write-Verbose -Message "Expanding Group $($gp.TrusteeObjectGUID)"
-                    #check if we have already expanded this group . . . 
-                    switch ($script:ExpandedGroupsNonGroupMembershipHash.ContainsKey($gp.TrusteeObjectGUID))
-                    {
-                        $true
-                        {
-                            #if so, get the terminal trustee objects from the expansion hashtable
-                            $UserTrustees = $script:ExpandedGroupsNonGroupMembershipHash.$($gp.TrusteeObjectGUID)
-                            Write-Verbose -Message "Previously Expanded Group $($gp.TrusteeObjectGUID) Members Count: $($userTrustees.count)"
-                        }
-                        $false
-                        {
-                            #if not, get the terminal trustee objects now
-                            if ($UseExchangeCommandsInsteadOfADOrLDAP -eq $true)
-                            {
-                                $UserTrustees = @(Get-GroupMemberExpandedViaExchange -Identity $gp.TrusteeObjectGUID -ExchangeSession $exchangeSession -hrPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryRecipientHash $SIDHistoryRecipientHash -UnFoundIdentitiesHash $UnfoundIdentitiesHash -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline)
-                            }
-                            else
-                            {
-                                $UserTrustees = @(Get-GroupMemberExpandedViaLocalLDAP -Identity $gp.TrusteeDistinguishedName -ExchangeSession $exchangeSession -hrPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryRecipientHash $SIDHistoryRecipientHash -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnfoundIdentitiesHash)
-                            }
-                            #and add them to the expansion hashtable
-                            $script:ExpandedGroupsNonGroupMembershipHash.$($gp.TrusteeObjectGUID) = $UserTrustees
-                            Write-Verbose -Message "Newly Expanded Group $($gp.TrusteeObjectGUID) Members Count: $($userTrustees.count)"
-                        }
-                    }
-                    foreach ($u in $UserTrustees)
-                    {
-                        $trusteeRecipient = $u
-                        switch ($null -eq $trusteeRecipient)
-                        {
-                            $true
-                            {
-                                #no point in doing anything here
-                            }#end $true
-                            $false
-                            {
-                                if (-not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
-                                {
-                                    $npeoParams = @{
-                                        TargetMailbox = $TargetMailbox
-                                        TrusteeIdentity = $trusteeRecipient.guid.guid
-                                        TrusteeRecipientObject = $trusteeRecipient
-                                        TrusteeGroupObjectGUID = $gp.TrusteeObjectGUID
-                                        PermissionType = $gp.PermissionType
-                                        AssignmentType = 'GroupMembership'
-                                        SourceExchangeOrganization = $ExchangeOrganization
-                                        IsInherited = $gp.IsInherited
-                                        ParentPermissionIdentity = $gp.PermissionIdentity
-                                    }
-                                    New-PermissionExportObject @npeoParams
-                                }
-                            }#end $false
-                        }#end switch
-                    }#end foreach (user)
-                }#end foreach (permission)
-            )#expandedPermissions
-            if ($expandedPermissions.Count -ge 1)
-            {
-                #remove any self permissions that came in through expansion
-                $expandedPermissions = @($expandedPermissions | Where-Object -FilterScript {$_.TargetObjectGUID -ne $_.TrusteeObjectGUID})
-            }
-            if ($dropExpandedParentGroupPermissions)
-            {
-                Write-Output -InputObject @($ngPermissions;$expandedPermissions)
-            }
-            else
-            {
-                Write-Output -InputObject @($ngPermissions;$gPermissions;$expandedPermissions)
-            }
-        }
-        else
-        {
-            Write-output -inputobject $permission
-        }
-    }
-#end Function Expand-GroupPermission
+
 function Get-CalendarPermission
     {
         $CalendarPermission = Get-MailboxFolderPermission -Identity ($Mailbox.alias + ':\Calendar') -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | ?{$_.User -notlike "Anonymous" -and $_.User -notlike "Default"} | Select User, AccessRights
@@ -207,7 +10,7 @@ function Get-CalendarPermission
     }
 #end Get-CalendarPermission
 ###################################################################
-#Get Permission Functions
+#Get/Export Permission Functions
 ###################################################################
 Function Get-SIDHistoryRecipientHash 
     {
@@ -762,26 +565,225 @@ function Get-SendASPermisssionsViaLocalLDAP
         }#end foreach
     }
 #end function Get-SendASPermissionsViaLocalLDAP
+function Get-GroupMemberExpandedViaExchange
+    {
+        [CmdletBinding()]
+        param
+        (
+            [string]$Identity
+            ,
+            $ExchangeSession
+            ,
+            $ExchangeOrganizationIsInExchangeOnline
+            ,
+            $hrPropertySet
+            ,
+            $ObjectGUIDHash
+            ,
+            $DomainPrincipalHash
+            ,
+            $SIDHistoryRecipientHash
+            ,
+            $UnFoundIdentitiesHash
+            ,
+            [int]$iterationLimit = 100
+        )
+        Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
+        $splat = @{
+            Identity = $Identity
+            ErrorAction = 'Stop'
+        }
+        $BaseGroupMemberIdentities = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members})
+        Write-Verbose -Message "Got $($BaseGroupmemberIdentities.Count) Base Group Members for Group $Identity"
+        $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {Get-TrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash})
+        $iteration = 0
+        $AllResolvedMembers = @(
+            do
+            {
+                $iteration++
+                $BaseGroupMembership | Where-Object -FilterScript {$_.RecipientTypeDetails -notlike '*group*'}
+                $RemainingGroupMembers =  @($BaseGroupMembership | Where-Object -FilterScript {$_.RecipientTypeDetails -like '*group*'})
+                Write-Verbose -Message "Got $($RemainingGroupMembers.Count) Remaining Nested Group Members for Group $identity.  Iteration: $iteration"
+                $BaseGroupMemberIdentities = @($RemainingGroupMembers | ForEach-Object {$splat = @{Identity = $_.guid.guid;ErrorAction = 'Stop'};invoke-command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members}})
+                $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {Get-TrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash})
+                Write-Verbose -Message "Got $($baseGroupMembership.count) Newly Explanded Group Members for Group $identity"
+            }
+            until ($BaseGroupMembership.count -eq 0 -or $iteration -ge $iterationLimit)
+        )
+        Write-Output -InputObject $AllResolvedMembers
+    }
+#end function Get-GroupMemberExpandedViaExchange
+function Get-GroupMemberExpandedViaLocalLDAP
+    {
+        [CmdletBinding()]
+        param
+        (
+            [string]$Identity #distinguishedName
+            ,
+            $ExchangeSession
+            ,
+            $hrPropertySet
+            ,
+            $ObjectGUIDHash
+            ,
+            $DomainPrincipalHash
+            ,
+            $SIDHistoryRecipientHash
+            ,
+            [hashtable]$UnfoundIdentitiesHash
+            ,
+            $ExchangeOrganizationIsInExchangeOnline
+        )
+        if (-not (Test-Path -Path variable:script:dsLookFor))
+        {
+            #enumerate groups: http://stackoverflow.com/questions/8055338/listing-users-in-ad-group-recursively-with-powershell-script-without-cmdlets/8055996#8055996
+            $script:dse = [ADSI]"LDAP://Rootdse"
+            $script:dn = [ADSI]"LDAP://$($script:dse.DefaultNamingContext)"
+            $script:dsLookFor = New-Object System.DirectoryServices.DirectorySearcher($script:dn)
+            $script:dsLookFor.SearchScope = "subtree" 
+        }
+        $script:dsLookFor.Filter = "(&(memberof:1.2.840.113556.1.4.1941:=$($Identity))(objectCategory=user))"
+        $TrusteeUserObjects = @($dsLookFor.findall())
+        foreach ($u in $TrusteeUserObjects)
+        {
+            $TrusteeIdentity = $(Get-GuidFromByteArray -GuidByteArray $($u.Properties.objectguid)).guid
+            $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $TrusteeIdentity -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
+            if ($null -ne $trusteeRecipient)
+            {Write-Output -InputObject $trusteeRecipient}
+        }
+    }
+#end function Get-GroupMemberExpandedViaExchange
+function Expand-GroupPermission
+    {
+        [CmdletBinding()]
+        param
+        (
+            [psobject[]]$Permission
+            ,
+            $TargetMailbox
+            ,
+            [hashtable]$ObjectGUIDHash
+            ,
+            [hashtable]$SIDHistoryHash
+            ,
+            $excludedTrusteeGUIDHash
+            ,
+            [hashtable]$UnfoundIdentitiesHash
+            ,
+            $HRPropertySet
+            ,
+            $exchangeSession
+            ,
+            $dropExpandedParentGroupPermissions
+            ,
+            [switch]$UseExchangeCommandsInsteadOfADOrLDAP
+        )
+        Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
+        $gPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -like '*Group*'})
+        $ngPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -notlike '*Group*' -or $null -eq $_.TrusteeRecipientTypeDetails})
+        if ($gPermissions.Count -ge 1)
+        {
+            $expandedPermissions = @(
+                foreach ($gp in $gPermissions)
+                {
+                    Write-Verbose -Message "Expanding Group $($gp.TrusteeObjectGUID)"
+                    #check if we have already expanded this group . . . 
+                    switch ($script:ExpandedGroupsNonGroupMembershipHash.ContainsKey($gp.TrusteeObjectGUID))
+                    {
+                        $true
+                        {
+                            #if so, get the terminal trustee objects from the expansion hashtable
+                            $UserTrustees = $script:ExpandedGroupsNonGroupMembershipHash.$($gp.TrusteeObjectGUID)
+                            Write-Verbose -Message "Previously Expanded Group $($gp.TrusteeObjectGUID) Members Count: $($userTrustees.count)"
+                        }
+                        $false
+                        {
+                            #if not, get the terminal trustee objects now
+                            if ($UseExchangeCommandsInsteadOfADOrLDAP -eq $true)
+                            {
+                                $UserTrustees = @(Get-GroupMemberExpandedViaExchange -Identity $gp.TrusteeObjectGUID -ExchangeSession $exchangeSession -hrPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryRecipientHash $SIDHistoryRecipientHash -UnFoundIdentitiesHash $UnfoundIdentitiesHash -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline)
+                            }
+                            else
+                            {
+                                $UserTrustees = @(Get-GroupMemberExpandedViaLocalLDAP -Identity $gp.TrusteeDistinguishedName -ExchangeSession $exchangeSession -hrPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryRecipientHash $SIDHistoryRecipientHash -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnfoundIdentitiesHash)
+                            }
+                            #and add them to the expansion hashtable
+                            $script:ExpandedGroupsNonGroupMembershipHash.$($gp.TrusteeObjectGUID) = $UserTrustees
+                            Write-Verbose -Message "Newly Expanded Group $($gp.TrusteeObjectGUID) Members Count: $($userTrustees.count)"
+                        }
+                    }
+                    foreach ($u in $UserTrustees)
+                    {
+                        $trusteeRecipient = $u
+                        switch ($null -eq $trusteeRecipient)
+                        {
+                            $true
+                            {
+                                #no point in doing anything here
+                            }#end $true
+                            $false
+                            {
+                                if (-not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
+                                {
+                                    $npeoParams = @{
+                                        TargetMailbox = $TargetMailbox
+                                        TrusteeIdentity = $trusteeRecipient.guid.guid
+                                        TrusteeRecipientObject = $trusteeRecipient
+                                        TrusteeGroupObjectGUID = $gp.TrusteeObjectGUID
+                                        PermissionType = $gp.PermissionType
+                                        AssignmentType = 'GroupMembership'
+                                        SourceExchangeOrganization = $ExchangeOrganization
+                                        IsInherited = $gp.IsInherited
+                                        ParentPermissionIdentity = $gp.PermissionIdentity
+                                    }
+                                    New-PermissionExportObject @npeoParams
+                                }
+                            }#end $false
+                        }#end switch
+                    }#end foreach (user)
+                }#end foreach (permission)
+            )#expandedPermissions
+            if ($expandedPermissions.Count -ge 1)
+            {
+                #remove any self permissions that came in through expansion
+                $expandedPermissions = @($expandedPermissions | Where-Object -FilterScript {$_.TargetObjectGUID -ne $_.TrusteeObjectGUID})
+            }
+            if ($dropExpandedParentGroupPermissions)
+            {
+                Write-Output -InputObject @($ngPermissions;$expandedPermissions)
+            }
+            else
+            {
+                Write-Output -InputObject @($ngPermissions;$gPermissions;$expandedPermissions)
+            }
+        }
+        else
+        {
+            Write-output -inputobject $permission
+        }
+    }
+#end Function Expand-GroupPermission
 ###################################################################
 #Main/Control Function
 ###################################################################
-Function Export-ExchangePermission
+Function Get-ExchangePermission
     {
         #ToDo
         #Add an attribute to the permission object which indicates if the target/permholder were in the mailboxes scope
-        #use get-group and/or get-user when get-recipient fails to get an object
-        #Fix Fullaccess to leverage SID History and Inheritance options
-        #Make inheritance work for expanded group perms, too. right now will say false for all which isn't correct.
         #add excluded prefixes with split on \
         #add scoping by OU? integrate EXO recipients as a filter of some sort?
         #implement explicit garbage collection. 
-
+        #Add Forwarding detection/export
+        #Add Calendar Permissions -- in progress
+        #Add Resume capability for broken session scenario
+        #use get-group and/or get-user when get-recipient fails to get an object -- done
+        #Fix Fullaccess to leverage SID History and Inheritance options -- done
+        #Make inheritance work for expanded group perms, too. right now will say false for all which isn't correct. -- done
         #fix ugly out-file hack -- done
         #fix denies --done
         #globalsendas -- done
-        ##parameterset -- done
         ##recip instead of mailbox -- done just for globalsendas
-        #sid stuff -- done
+        #sidhistory support -- done
         #AD connection -- done
         #inheritance switch and output -- done
         #hard-code sendas guid -- done
@@ -839,6 +841,12 @@ Function Export-ExchangePermission
             [switch]$UseExchangeCommandsInsteadOfADOrLDAP
             ,
             [switch]$ExcludeNonePermissionOutput
+            ,
+            [switch]$EnableResume
+            ,
+            [Parameter(ParameterSetName = 'Resume',Mandatory)]
+            [ValidateScript({Test-Path -Path $_})]
+            [string]$ResumeFile
         )#End Param
         Begin
         {
@@ -855,9 +863,9 @@ Function Export-ExchangePermission
                 if ($null -eq $ActiveDirectoryDrive)
                 {throw("If IncludeSIDHistory is required an Active Directory PS Drive connection to the appropriate domain or forest must be provided")}
             }
-        }
-        End
-        {
+            #create a property set for storing of recipient data during processing.  We don't need all attributes in memory/storage.
+            $HRPropertySet = @('*name*','*addr*','RecipientType*','*Id','Identity','GrantSendOnBehalfTo')
+            
             #Region GetExcludedRecipients
             if ($PSBoundParameters.ContainsKey('ExcludedIdentities'))
             {
@@ -871,7 +879,7 @@ Function Export-ExchangePermission
                                 Identity = $_
                                 ErrorAction = 'Stop'
                             }
-                            Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @Using:splat} -ErrorAction 'Stop'
+                            Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @Using:splat | Select-Object -Property $using:HRPropertySet} -ErrorAction 'Stop'
                         }
                     )
                     Write-Log -Message $message -EntryType Succeeded
@@ -905,7 +913,7 @@ Function Export-ExchangePermission
                                 Identity = $_
                                 ErrorAction = 'Stop'
                             }
-                            Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @Using:splat} -ErrorAction 'Stop'
+                            Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @Using:splat | Select-Object -Property $using:HRPropertySet} -ErrorAction 'Stop'
                         }
                     )
                     Write-Log -Message $message -EntryType Succeeded
@@ -942,7 +950,7 @@ Function Export-ExchangePermission
                                     Identity = $_
                                     ErrorAction = 'Stop'
                                 }
-                                Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @Using:splat} -ErrorAction Stop
+                                Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @Using:splat | Select-Object -Property $Using:HRPropertySet} -ErrorAction Stop
                             }
                         )
                         Write-Log -Message $message -EntryType Succeeded
@@ -956,7 +964,7 @@ Function Export-ExchangePermission
                             ResultSize = 'Unlimited'
                             ErrorAction = 'Stop'
                         }
-                        $InScopeRecipients = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Mailbox @Using:splat} -ErrorAction Stop)
+                        $InScopeRecipients = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Mailbox @Using:splat | Select-Object -Property $Using:HRPropertySet} -ErrorAction Stop)
                         Write-Log -Message $message -EntryType Succeeded
                     }#end AllMailboxes
                     'GlobalSendAs'
@@ -968,7 +976,7 @@ Function Export-ExchangePermission
                             ResultSize = 'Unlimited'
                             ErrorAction = 'Stop'
                         }
-                        $InScopeRecipients = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @Using:splat} -ErrorAction Stop)
+                        $InScopeRecipients = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @Using:splat | Select-Object -Property $Using:HRPropertySet} -ErrorAction Stop)
                         Write-Log -Message $message -EntryType Succeeded
                     }#end GlobalSendAS
                 }#end Switch
@@ -981,7 +989,7 @@ Function Export-ExchangePermission
                 throw("Failed: $Message")
             }
             $InScopeRecipientCount = $InScopeRecipients.count
-            Write-Log -Message "Got $InScopeRecipientCount In Scope Objects" -EntryType Notification
+            Write-Log -Message "Got $InScopeRecipientCount In Scope Recipient Objects" -EntryType Notification
             #EndRegion GetInScopeRecipients
 
             #Region GetSIDHistoryData
@@ -997,22 +1005,45 @@ Function Export-ExchangePermission
 
             #Region BuildLookupHashTables
             Write-Log -Message "Building Recipient Lookup HashTables" -EntryType Notification
-            $HRPropertySet = @('*name*','*addr*','RecipientType*','*Id','Identity')
             $ObjectGUIDHash = $InScopeRecipients | Select-object -property $HRPropertySet | Group-Object -AsHashTable -Property Guid -AsString
             #Also Add the Exchange GUIDs to this lookup if we are dealing with Exchange Online
             if ($ExchangeOrganizationIsInExchangeOnline)
             {
-                $InScopeRecipients | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$ObjectGUIDHash.$($_.ExchangeGuid.Guid) = $_}
+                $InScopeRecipients | ForEach-Object -Process {$ObjectGUIDHash.$($_.ExchangeGuid.Guid) = $_}
             }
+           
+            # Setup for Possible Resume if requested by the user
+            if ($PSBoundParameters.ContainsKey('EnableResume'))
+            {
+                $ExportExchangePermissionsExportResumeData = @{
+                    ExchangePermissionsExportConfiguration = $(Get-AllParametersWithAValue)
+                    ExcludedRecipientGuidHash = $ExcludedRecipientGuidHash
+                    ExcludedTrusteeGuidHash = $ExcludedTrusteeGuidHash
+                    SIDHistoryRecipientHash = $SIDHistoryRecipientHash
+                    InScopeRecipients = $InScopeRecipients
+                    ObjectGUIDHash = $ObjectGUIDHash
+                    outputFolderPath = $outputFolderPath
+                    TimeStamp = $TimeStamp
+                    ErrorAction = 'Stop'
+                }
+                $message = "Enable Resume and Export Resume Data"
+                Write-Log -Message $message
+                Export-ExchangePermissionExportResumeData @ExportExchangePermissionsExportResumeData
+                Remove-Variable -Name ExportExchangePermissionsExportResumeData
+            }
+            
+            #these have to be populated as we go
+            $DomainPrincipalHash = @{}
+            $UnfoundIdentitiesHash = @{}
             if ($expandGroups -eq $true)
             {
                 $script:ExpandedGroupsNonGroupMembershipHash = @{}
             }
-            #these have to be populated as we go
-            $DomainPrincipalHash = @{}
-            $UnfoundIdentitiesHash = @{}
-            #EndRegion BuildLookupHashtables
 
+            #EndRegion BuildLookupHashtables
+        }
+        End
+        {
             #Set Up to Loop through Mailboxes/Recipients
             $ISRCounter = 0
             [uint32]$Script:PermissionIdentity = 0
@@ -1074,25 +1105,34 @@ Function Export-ExchangePermission
                     {$splat.UseExchangeCommandsInsteadOfADOrLDAP = $true}
                     $PermissionExportObjects = @(Expand-GroupPermission @splat)
                 }
-                if ($PermissionExportObjects.Count -eq 0 -and -not $ExcludeNonePermissionOutput -eq $true)
+                if (Test-ExchangeSession -Session $ExchangeSession)
                 {
-                    $GPEOParams = @{
-                        TargetMailbox = $ISR
-                        TrusteeIdentity = 'Not Applicable'
-                        TrusteeRecipientObject = $null
-                        PermissionType = 'None'
-                        AssignmentType = 'None'
-                        SourceExchangeOrganization = $ExchangeOrganization
-                        None = $true
+                    if ($PermissionExportObjects.Count -eq 0 -and -not $ExcludeNonePermissionOutput -eq $true)
+                    {
+                        $GPEOParams = @{
+                            TargetMailbox = $ISR
+                            TrusteeIdentity = 'Not Applicable'
+                            TrusteeRecipientObject = $null
+                            PermissionType = 'None'
+                            AssignmentType = 'None'
+                            SourceExchangeOrganization = $ExchangeOrganization
+                            None = $true
+                        }
+                        $NonPerm = New-PermissionExportObject @GPEOParams
+                        Write-Output $NonPerm
                     }
-                    $NonPerm = New-PermissionExportObject @GPEOParams
-                    Write-Output $NonPerm
+                    elseif ($PermissionExportObjects.Count -gt 0)
+                    {
+                        Write-Output $PermissionExportObjects
+                    }
+                    Write-Log -Message $message -EntryType Succeeded
                 }
-                elseif ($PermissionExportObjects.Count -gt 0)
+                else
                 {
-                    Write-Output $PermissionExportObjects
+                    Write-Log -Message $message -EntryType Failed -ErrorLog
+                    $message = "Exchange Session Failed/Disconnected during permission processing for ID $ID."
+                    Write-Log -Message $message -EntryType Notification -ErrorLog
                 }
-                Write-Log -Message $message -EntryType Succeeded
             }#Foreach recipient in set
         }#end End
     }

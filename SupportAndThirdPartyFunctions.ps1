@@ -38,7 +38,7 @@ function Get-CallerPreference
     .LINK
     about_Preference_Variables
     #>
-    #https://gallery.technet.microsoft.com/scriptcenter/Inherit-Preference-82343b9d
+    # https://gallery.technet.microsoft.com/scriptcenter/Inherit-Preference-82343b9d
     [CmdletBinding(DefaultParameterSetName = 'AllVariables')]
     param (
         [Parameter(Mandatory)]
@@ -211,7 +211,8 @@ function Get-GuidFromByteArray
 Function Write-Log
 {
     [cmdletbinding()]
-    Param(
+    Param
+    (
         [Parameter(Mandatory,Position=0)]
         [ValidateNotNullOrEmpty()]
         [string]$Message
@@ -308,3 +309,136 @@ Function Get-SendASRightGUID
 
         [GUID]$right.RightsGuid.Value
 }
+#end Function Get-SendASRightGUID
+Function Test-ExchangeSession
+{
+    [CmdletBinding()]
+    param
+    (
+        $Session
+    )
+    switch ($Session.State -eq 'Opened')
+    {
+        $true
+        {
+            Try
+            {
+                $TestCommandResult = invoke-command -Session $Session -ScriptBlock {Get-OrganizationConfig -ErrorAction Stop | Select-Object -ExpandProperty Identity | Select-Object -ExpandProperty Name} -ErrorAction Stop
+                switch (-not [string]::IsNullOrEmpty($TestCommandResult))
+                {
+                    $true
+                    {Write-Output -InputObject $true}
+                    $false
+                    {Write-Output -InputObject $false}
+                }
+            }
+            Catch
+            {
+                Write-Output -InputObject $false
+            }
+        }
+        $false
+        {
+            Write-Output -InputObject $false
+        }
+    }
+}
+#end Function Test-ExchangeSession
+Function Export-ExchangePermissionExportResumeData
+{
+    [CmdletBinding()]
+    param
+    (
+        $ExcludedRecipientGuidHash
+        ,
+        $ExcludedTrusteeGuidHash
+        ,
+        $SIDHistoryRecipientHash
+        ,
+        $InScopeRecipients
+        ,
+        $ObjectGUIDHash
+        ,
+        $outputFolderPath
+        ,
+        $TimeStamp
+    )
+    Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
+    $ExchangePermissionExportResumeData = @{
+        ExcludedRecipientGuidHash = $ExcludedRecipientGuidHash
+        ExcludedTrusteeGuidHash = $ExcludedTrusteeGuidHash
+        SIDHistoryRecipientHash = $SIDHistoryRecipientHash
+        InScopeRecipients = $InScopeRecipients
+        ObjectGUIDHash = $ObjectGUIDHash
+    }
+    $ExportFilePath = Join-Path -Path $outputFolderPath -ChildPath $($TimeStamp + "ExchangePermissionExportResumeData.xml")
+    Export-Clixml -Depth 3 -Path $ExportFilePath -InputObject $ExchangePermissionExportResumeData -Encoding UTF8
+    Write-Output -InputObject $ExportFilePath
+}
+
+Function Get-CommonParameter
+    {
+        [cmdletbinding(SupportsShouldProcess)]
+        param()
+        $MyInvocation.MyCommand.Parameters.Keys
+    }
+#end function Get-CommonParameter
+function Get-AllParameters
+    {
+        [cmdletbinding()]
+        param
+        (
+            $BoundParameters #$PSBoundParameters
+            ,
+            $AllParameters #$MyInvocation.MyCommand.Parameters
+            ,
+            [switch]$IncludeCommon
+        )
+        $AllKeys = $($AllParameters.Keys ; $BoundParameters.Keys)
+        $allKeys = $AllKeys | Sort-Object -Unique
+        if ($IncludeCommon -ne $true)
+        {
+            $allKeys = $AllKeys | Where-Object -FilterScript {$_ -notin @(Get-CommonParameter)}
+        }
+        Write-Output -InputObject $AllKeys
+    }
+#end function Get-AllParameters
+function Get-AllParametersWithAValue
+    {
+        [cmdletbinding()]
+        param
+        (
+            $BoundParameters #$PSBoundParameters
+            ,
+            $AllParameters #$MyInvocation.MyCommand.Parameters
+            ,
+            [switch]$IncludeCommon
+            # ,
+            # $Scope = 1
+        )
+        Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
+        $AllKeys = @($AllParameters.Keys ; $BoundParameters.Keys)
+        $AllKeys = @($AllKeys | Sort-Object -Unique)
+        Write-Verbose -Message "$($allKeys.count) Parameter Keys Found: $($allKeys -join ';')"
+        if ($IncludeCommon -ne $true)
+        {
+            $AllKeys = @($AllKeys | Where-Object -FilterScript {$_ -notin @(Get-CommonParameter)})
+        }
+        $AllParametersWithAValue = @(
+            foreach ($k in $AllKeys)
+            {
+                try
+                {
+                    Get-Variable -Name $k -scope 1 -ErrorAction Stop | Where-Object -FilterScript {$null -ne $_.Value -and -not [string]::IsNullOrWhiteSpace($_.Value)}
+                    # -Scope $Scope
+                }
+                catch
+                {
+                    #don't care if a particular variable is not found
+                    Write-Verbose -Message "$k was not found"
+                }
+            }
+        )
+        Write-Output -InputObject $AllParametersWithAValue
+    }
+#end function Get-AllParametersWithAValue
