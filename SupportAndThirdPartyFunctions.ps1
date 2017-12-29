@@ -349,6 +349,8 @@ Function Export-ExchangePermissionExportResumeData
     [CmdletBinding()]
     param
     (
+        $ExchangePermissionsExportParameters
+        ,
         $ExcludedRecipientGuidHash
         ,
         $ExcludedTrusteeGuidHash
@@ -361,29 +363,70 @@ Function Export-ExchangePermissionExportResumeData
         ,
         $outputFolderPath
         ,
+        $ExportedExchangePermissionsFile
+        ,
         $TimeStamp
     )
     Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
     $ExchangePermissionExportResumeData = @{
+        ExchangePermissionsExportParameters = $ExchangePermissionsExportParameters
         ExcludedRecipientGuidHash = $ExcludedRecipientGuidHash
         ExcludedTrusteeGuidHash = $ExcludedTrusteeGuidHash
         SIDHistoryRecipientHash = $SIDHistoryRecipientHash
         InScopeRecipients = $InScopeRecipients
         ObjectGUIDHash = $ObjectGUIDHash
+        ExportedExchangePermissionsFile = $ExportedExchangePermissionsFile
+        TimeStamp = $TimeStamp
     }
     $ExportFilePath = Join-Path -Path $outputFolderPath -ChildPath $($TimeStamp + "ExchangePermissionExportResumeData.xml")
-    Export-Clixml -Depth 3 -Path $ExportFilePath -InputObject $ExchangePermissionExportResumeData -Encoding UTF8
+    Export-Clixml -Depth 2 -Path $ExportFilePath -InputObject $ExchangePermissionExportResumeData -Encoding UTF8
     Write-Output -InputObject $ExportFilePath
 }
-
-Function Get-CommonParameter
+Function Import-ExchangePermissionExportResumeData
+{
+    [CmdletBinding()]
+    param
+    (
+        [parameter(Mandatory)]
+        $path
+    )
+    $ImportedExchangePermissionsExportResumeData = Import-Clixml -Path $path -ErrorAction Stop
+    $parentpath = Split-Path -Path $path -Parent
+    $ResumeIDFilePath = Join-Path -path $parentpath -ChildPath $($ImportedExchangePermissionsExportResumeData.TimeStamp + 'ExchangePermissionExportResumeID.xml')
+    $ResumeIDs = Import-Clixml -Path $ResumeIDFilePath -ErrorAction Stop
+    $ImportedExchangePermissionsExportResumeData.ResumeID = $ResumeIDs.ResumeID
+    $ImportedExchangePermissionsExportResumeData.NextPermissionIdentity = $ResumeIDs.NextPermissionIdentity
+    Write-Output -InputObject $ImportedExchangePermissionsExportResumeData
+}
+Function Export-ResumeID
+{
+    [CmdletBinding()]
+    param
+    (
+        $ID
+        ,
+        $nextPermissionID
+        ,
+        $outputFolderPath
+        ,
+        $TimeStamp
+    )
+    $ExportFilePath = Join-Path -Path $outputFolderPath -ChildPath $($TimeStamp + "ExchangePermissionExportResumeID.xml")
+    $Identities = @{
+        NextPermissionIdentity = $nextPermissionID
+        ResumeID = $ID
+    }
+    Export-Clixml -Depth 1 -Path $ExportFilePath -InputObject $Identities -Encoding UTF8
+    Write-Output -InputObject $ExportFilePath
+}
+Function GetCommonParameter
     {
         [cmdletbinding(SupportsShouldProcess)]
         param()
         $MyInvocation.MyCommand.Parameters.Keys
     }
 #end function Get-CommonParameter
-function Get-AllParameters
+function GetAllParametersWithAValue
     {
         [cmdletbinding()]
         param
@@ -391,45 +434,18 @@ function Get-AllParameters
             $BoundParameters #$PSBoundParameters
             ,
             $AllParameters #$MyInvocation.MyCommand.Parameters
-            ,
-            [switch]$IncludeCommon
-        )
-        $AllKeys = $($AllParameters.Keys ; $BoundParameters.Keys)
-        $allKeys = $AllKeys | Sort-Object -Unique
-        if ($IncludeCommon -ne $true)
-        {
-            $allKeys = $AllKeys | Where-Object -FilterScript {$_ -notin @(Get-CommonParameter)}
-        }
-        Write-Output -InputObject $AllKeys
-    }
-#end function Get-AllParameters
-function Get-AllParametersWithAValue
-    {
-        [cmdletbinding()]
-        param
-        (
-            $BoundParameters #$PSBoundParameters
-            ,
-            $AllParameters #$MyInvocation.MyCommand.Parameters
-            ,
-            [switch]$IncludeCommon
-            # ,
-            # $Scope = 1
         )
         Get-CallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
         $AllKeys = @($AllParameters.Keys ; $BoundParameters.Keys)
         $AllKeys = @($AllKeys | Sort-Object -Unique)
         Write-Verbose -Message "$($allKeys.count) Parameter Keys Found: $($allKeys -join ';')"
-        if ($IncludeCommon -ne $true)
-        {
-            $AllKeys = @($AllKeys | Where-Object -FilterScript {$_ -notin @(Get-CommonParameter)})
-        }
+        $AllKeys = @($AllKeys | Where-Object -FilterScript {$_ -notin @(GetCommonParameter)})
         $AllParametersWithAValue = @(
             foreach ($k in $AllKeys)
             {
                 try
                 {
-                    Get-Variable -Name $k -scope 1 -ErrorAction Stop | Where-Object -FilterScript {$null -ne $_.Value -and -not [string]::IsNullOrWhiteSpace($_.Value)}
+                    Get-Variable -Name $k -ErrorAction Stop -Scope 1 | Where-Object -FilterScript {$null -ne $_.Value -and -not [string]::IsNullOrWhiteSpace($_.Value)}
                     # -Scope $Scope
                 }
                 catch
@@ -442,3 +458,19 @@ function Get-AllParametersWithAValue
         Write-Output -InputObject $AllParametersWithAValue
     }
 #end function Get-AllParametersWithAValue
+function GetArrayIndexForIdentity
+    {
+        [cmdletbinding()]
+        param(
+            [parameter(mandatory=$true)]
+            $array #The array for which you want to find a value's index
+            ,
+            [parameter(mandatory=$true)]
+            $value #The Value for which you want to find an index
+            ,
+            [parameter(Mandatory)]
+            $property #The property name for the value for which you want to find an index
+        )
+        Write-Verbose -Message 'Using Property Match for Index'
+        [array]::indexof(($array.$property).guid,$value)
+    }#Get-ArrayIndexForValue
