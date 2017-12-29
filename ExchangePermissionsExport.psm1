@@ -1,14 +1,4 @@
-#should we look for forwarded mailboxes?
 
-function Get-CalendarPermission
-    {
-        $CalendarPermission = Get-MailboxFolderPermission -Identity ($Mailbox.alias + ':\Calendar') -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | ?{$_.User -notlike "Anonymous" -and $_.User -notlike "Default"} | Select User, AccessRights
-        if (!$CalendarPermission){
-            $Calendar = (($Mailbox.PrimarySmtpAddress.ToString())+ ":\" + (Get-MailboxFolderStatistics -Identity $Mailbox.DistinguishedName -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | where-object {$_.FolderType -eq "Calendar"} | Select-Object -First 1).Name)
-            $CalendarPermission = Get-MailboxFolderPermission -Identity $Calendar -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | ?{$_.User -notlike "Anonymous" -and $_.User -notlike "Default"} | Select User, AccessRights
-        }
-    }
-#end Get-CalendarPermission
 ###################################################################
 #Get/Export Permission Functions
 ###################################################################
@@ -224,14 +214,14 @@ function Get-TrusteeObject
         #if we found a 'new' object add it to the lookup hashtables
         if ($null -ne $AddToLookup -and $AddToLookup.count -gt 0)
         {
-            Write-Verbose -Verbose -Message "Found Trustee $TrusteeIdentity via new lookup"
+            Write-Verbose -Message "Found Trustee $TrusteeIdentity via new lookup"
             $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$ObjectGUIDHash.$($_.ExchangeGuid.Guid) = $_} -ErrorAction SilentlyContinue
-            Write-Verbose -Verbose -Message "ObjectGUIDHash Count is $($ObjectGUIDHash.count)"
+            Write-Verbose -Message "ObjectGUIDHash Count is $($ObjectGUIDHash.count)"
             $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$ObjectGUIDHash.$($_.Guid.Guid) = $_} -ErrorAction SilentlyContinue
             if ($TrusteeIdentity -like '*\*' -or $TrusteeIdentity -like '*@*')
             {
                 $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$DomainPrincipalHash.$($TrusteeIdentity) = $_} -ErrorAction SilentlyContinue
-                Write-Verbose -Verbose -Message "DomainPrincipalHash Count is $($DomainPrincipalHash.count)"
+                Write-Verbose -Message "DomainPrincipalHash Count is $($DomainPrincipalHash.count)"
             }
         }
         #if we found nothing, add the Identity to the UnfoundIdentitiesHash
