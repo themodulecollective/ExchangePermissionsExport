@@ -1,5 +1,5 @@
 #developing
-function Get-ForwardingMailboxe
+function Get-ForwardingMailbox
 {}
 
 function Get-CalendarPermission

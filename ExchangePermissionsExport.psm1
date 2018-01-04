@@ -760,12 +760,13 @@ Function Get-ExchangePermission
     {
         #ToDo
         #Add an attribute to the permission object which indicates if the target/permholder were in the mailboxes scope
-        #add excluded prefixes with split on \
-        #add scoping by OU? integrate EXO recipients as a filter of some sort?
+        #add excluded prefixes with split on \?
+        #add scoping by OU? 
+        #integrate EXO recipients as a filter of some sort?
         #implement explicit garbage collection. 
         #Add Forwarding detection/export
         #Add Calendar Permissions -- in progress
-        #Add Resume capability for broken session scenario
+        #Add Resume capability for broken session scenario -- done
         #use get-group and/or get-user when get-recipient fails to get an object -- done
         #Fix Fullaccess to leverage SID History and Inheritance options -- done
         #Make inheritance work for expanded group perms, too. right now will say false for all which isn't correct. -- done
@@ -1201,8 +1202,8 @@ Function Get-ExchangePermission
                         Write-Log -Message "Resume Recipient ID is $ID" -Verbose
                         $ResumeIDFile = Export-ResumeID -ID $ID -outputFolderPath $OutputFolderPath -TimeStamp $BeginTimeStamp -NextPermissionID $Script:PermissionIdentity
                         Write-Log -Message "Resume ID exported to file $resumeIDFile" -Verbose
-                        $message = "Run `'Get-ExchangePermission -ResumeFile $ResumeFile`' and also specify any common parameters desired (such as -verbose) since common parameters are not included in the Resume Data File."
-                        Write-Log -Message $message -EntryType Notification
+                        $message = "Run `'Get-ExchangePermission -ResumeFile $ResumeFile -ExchangeSession [your re-connected Exchange session variable]`' and also specify any common parameters desired (such as -verbose) since common parameters are not included in the Resume Data File."
+                        Write-Log -Message $message -EntryType Notification -verbose
                     }
                     Break nextISR
                 }
@@ -1235,7 +1236,7 @@ Function Get-ExchangePermission
                 $myerror = $_
                 Write-Log -Message $message -EntryType Failed -ErrorLog -Verbose
                 Write-Log -Message $myError.tostring() -ErrorLog
-                Write-Log -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + "ExportedExchangePermissions") for recovery/manual export."
+                Write-Log -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + "ExportedExchangePermissions") for recovery/manual export if desired/required.  This is separate from performing a Resume with a Resume file." -verbose
                 Set-Variable -Name $($BeginTimeStamp + "ExportedExchangePermissions") -Value $ExportedPermissions -Scope Global
             }
         }#end End
