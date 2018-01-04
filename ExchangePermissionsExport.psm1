@@ -263,7 +263,21 @@ Function Get-SendOnBehalfPermission
                 ErrorAction = 'Stop'
             }
             Write-Verbose -Message "Getting Trustee Objects from GrantSendOnBehalfTo"
-            $sbTrustees = Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Mailbox @using:splat | Select-Object -ExpandProperty GrantSendOnBehalfTo}
+            #doing this in try/catch b/c we might find the recipient is no longer a mailbox . . . 
+            try
+            {
+                $sbTrustees = Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Mailbox @using:splat | Select-Object -ExpandProperty GrantSendOnBehalfTo} -ErrorAction Stop            
+            }
+            catch
+            {
+                $myerror = $_
+                if ($myerror.tostring() -like "*isn't a mailbox user.")
+                {$sbTrustees = @()}
+                else
+                {
+                    throw($myerror)    
+                }
+            }
             foreach ($sb in $sbTrustees)
             {
                 $trusteeRecipient = Get-TrusteeObject -TrusteeIdentity $sb.objectguid.guid -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
@@ -330,8 +344,22 @@ function Get-FullAccessPermission
         $splat = @{Identity = $TargetMailbox.guid.guid; ErrorAction = 'Stop'}
         $FilterScriptString = '($_.AccessRights -like "*FullAccess*") -and -not ($_.User -like "NT AUTHORITY\SELF") -and -not ($_.Deny -eq $True) -and -not ($_.User -like "S-1-5*")'
         $filterscript = [scriptblock]::Create($FilterScriptString)
-        #add code to check session
-        $faRawPermissions = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-MailboxPermission @using:splat} -ErrorAction Stop) | Where-Object -FilterScript $filterscript
+        #doing this in try/catch b/c we might find the recipient is no longer a mailbox . . . 
+        try
+        {
+            $faRawPermissions = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-MailboxPermission @using:splat} -ErrorAction Stop) | Where-Object -FilterScript $filterscript
+        }
+        catch
+        {
+            $myerror = $_
+            if ($myerror.tostring() -like "*isn't a mailbox user.")
+            {$faRawPermissions = @()}
+            else
+            {
+                throw($myerror)    
+            }
+        }
+
         #drop InheritedPermissions if requested
         if ($dropInheritedPermissions -eq $true)
         {
@@ -766,6 +794,7 @@ Function Get-ExchangePermission
         #implement explicit garbage collection. 
         #Add Forwarding detection/export
         #Add Calendar Permissions -- in progress
+        #Add checking for In Scope Recipients when using parameter set scoped to only run get-sendonbehalf and get-mailboxpermissions when the recipient is a mailbox.
         #Add Resume capability for broken session scenario -- done
         #use get-group and/or get-user when get-recipient fails to get an object -- done
         #Fix Fullaccess to leverage SID History and Inheritance options -- done
@@ -1196,7 +1225,7 @@ Function Get-ExchangePermission
                 {
                     $myerror = $_
                     Write-Log -Message $myError.tostring() -EntryType Failed -ErrorLog -Verbose
-                    if ($PSBoundParameters.ContainsKey('EnableResume'))
+                    if ($EnableResume -eq $true)
                     {
                         Write-Log -Message "Resume File $ResumeFile is available to resume this operation after you have re-connected the Exchange Session" -Verbose
                         Write-Log -Message "Resume Recipient ID is $ID" -Verbose
