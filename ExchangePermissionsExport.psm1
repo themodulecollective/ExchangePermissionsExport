@@ -271,12 +271,14 @@ Function Get-SendOnBehalfPermission
             catch
             {
                 $myerror = $_
-                if ($myerror.tostring() -like "*isn't a mailbox user.")
-                {$sbTrustees = @()}
-                else
-                {
-                    throw($myerror)    
-                }
+                #if ($myerror.tostring() -like "*isn't a mailbox user.")
+                #{$sbTrustees = @()}
+                #else
+                #{
+                #throw($myerror)
+                Write-Log -Message $myerror.tostring() -ErrorLog -Verbose -EntryType Failed
+                $sbTrustees = @()
+                #}
             }
             foreach ($sb in $sbTrustees)
             {
@@ -352,12 +354,14 @@ function Get-FullAccessPermission
         catch
         {
             $myerror = $_
-            if ($myerror.tostring() -like "*isn't a mailbox user.")
-            {$faRawPermissions = @()}
-            else
-            {
-                throw($myerror)    
-            }
+            #if ($myerror.tostring() -like "*isn't a mailbox user.")
+            #{$faRawPermissions = @()}
+            #else
+            #{
+            #throw($myerror)
+            Write-Log -Message $myerror.tostring() -ErrorLog -Verbose -EntryType Failed
+            $faRawPermissions = @()
+            #}
         }
 
         #drop InheritedPermissions if requested
@@ -441,7 +445,16 @@ function Get-SendASPermissionsViaExchange
                     Identity = $TargetMailbox.guid.guid
                     AccessRights = 'SendAs'
                 }
-                $saRawPermissions = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {&($using:command) @using:splat} -ErrorAction Stop)
+                try
+                {
+                    $saRawPermissions = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {&($using:command) @using:splat} -ErrorAction Stop)
+                }
+                catch
+                {
+                    $saRawPermissions = @()
+                    $myerror = $_
+                    Write-Log -Message $myerror.tostring() -ErrorLog -Verbose -EntryType Failed
+                }
             }
             $false
             {
@@ -451,7 +464,16 @@ function Get-SendASPermissionsViaExchange
                     Identity = $TargetMailbox.distinguishedname
                 }
                 #Get All AD Permissions
-                $saRawPermissions = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {&($using:command) @using:splat} -ErrorAction Stop)
+                try
+                {
+                    $saRawPermissions = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {&($using:command) @using:splat} -ErrorAction Stop)
+                }
+                catch
+                {
+                    $saRawPermissions = @()
+                    $myerror = $_
+                    Write-Log -Message $myerror.tostring() -ErrorLog -Verbose -EntryType Failed
+                }
                 #Filter out just the Send-AS Permissions
                 $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript {$_.ExtendedRights -contains 'Send-As'})
             }
@@ -611,7 +633,16 @@ function Get-GroupMemberExpandedViaExchange
             Identity = $Identity
             ErrorAction = 'Stop'
         }
-        $BaseGroupMemberIdentities = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members})
+        Try
+        {
+            $BaseGroupMemberIdentities = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members})
+        }
+        Catch
+        {
+            $MyError = $_
+            $BaseGroupMemberIdentities = @()
+            Write-Log -Message $MyError.tostring() -EntryType Failed -ErrorLog -Verbose
+        }
         Write-Verbose -Message "Got $($BaseGroupmemberIdentities.Count) Base Group Members for Group $Identity"
         $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {Get-TrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash})
         $iteration = 0
@@ -661,7 +692,21 @@ function Get-GroupMemberExpandedViaLocalLDAP
             $script:dsLookFor.SearchScope = "subtree" 
         }
         $script:dsLookFor.Filter = "(&(memberof:1.2.840.113556.1.4.1941:=$($Identity))(objectCategory=user))"
-        $TrusteeUserObjects = @($dsLookFor.findall())
+        Try
+        {
+            $OriginalErrorActionPreference = $ErrorActionPreference
+            $ErrorActionPreference = 'Stop'
+            $TrusteeUserObjects = @($dsLookFor.findall())
+            $ErrorActionPreference = $OriginalErrorActionPreference
+        }
+        Catch
+        {
+            $myError = $_
+            $ErrorActionPreference = $OriginalErrorActionPreference
+            $TrusteeUserObjects = @()
+            Write-Log -Message $myError.tostring() -ErrorLog -EntryType Failed -Verbose
+        }
+
         foreach ($u in $TrusteeUserObjects)
         {
             $TrusteeIdentity = $(Get-GuidFromByteArray -GuidByteArray $($u.Properties.objectguid)).guid
