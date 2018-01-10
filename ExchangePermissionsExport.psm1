@@ -312,7 +312,7 @@ Function Get-SendOnBehalfPermission
                                 TrusteeIdentity = $sb.objectguid.guid
                                 TrusteeRecipientObject = $trusteeRecipient
                                 PermissionType = 'SendOnBehalf'
-                                AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
+                                AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {$null {'Undetermined'} '*group*' {'GroupMembership'} Default {'Direct'}}
                                 SourceExchangeOrganization = $ExchangeOrganization
                                 IsInherited = $false
                             }
@@ -519,7 +519,7 @@ function Get-SendASPermissionsViaExchange
                             TrusteeIdentity = $sa.$IdentityProperty
                             TrusteeRecipientObject = $trusteeRecipient
                             PermissionType = 'SendAs'
-                            AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
+                            AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {$null {'Undetermined'} '*group*' {'GroupMembership'} Default {'Direct'}}
                             IsInherited = $sa.IsInherited
                             SourceExchangeOrganization = $ExchangeOrganization
                         }
@@ -599,7 +599,7 @@ function Get-SendASPermisssionsViaLocalLDAP
                             TrusteeIdentity = $sa.$IdentityProperty
                             TrusteeRecipientObject = $trusteeRecipient
                             PermissionType = 'SendAs'
-                            AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
+                            AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {$null {'Undetermined'} '*group*' {'GroupMembership'} Default {'Direct'}}
                             IsInherited = $sa.IsInherited
                             SourceExchangeOrganization = $ExchangeOrganization
                         }
