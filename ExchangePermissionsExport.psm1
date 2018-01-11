@@ -959,6 +959,12 @@ Function Get-ExchangePermission
                     Write-Log -Message "Calling Invocation = $($MyInvocation.Line)" -EntryType Notification
                     Write-Log -Message "Provided Exchange Session is Running in Exchange Organzation $ExchangeOrganization" -EntryType Notification
                     $ResumeIndex = getarrayIndexForIdentity -array $InScopeRecipients -property 'guid' -Value $ResumeIdentity -ErrorAction Stop
+                    if ($null -eq $ResumeIndex -or $ResumeIndex.gettype().name -notlike '*int*')
+                    {
+                        $message = "ResumeIndex is invalid.  Check/Edit the *ResumeID.xml file for a valid ResumeIdentity GUID."
+                        Write-Log -Message $message -ErrorLog -EntryType Failed
+                        Throw($message)
+                    }
                     Write-Log -Message "Resume index set to $ResumeIndex based on ResumeIdentity $resumeIdentity" -EntryType Notification
                 }
                 $false
@@ -1257,9 +1263,9 @@ Function Get-ExchangePermission
                         else
                         {
                             Write-Log -Message $message -EntryType Failed -ErrorLog -Verbose
-                            $exitmessage = "Exchange Session Failed/Disconnected during permission processing for ID $ID."
+                            $exitmessage = "Test-ExchangeSession detected Exchange Session Failed/Disconnected during permission processing for ID $ID."
                             Write-Log -Message $exitmessage -EntryType Notification -ErrorLog -Verbose
-                            if ($PSBoundParameters.ContainsKey('EnableResume'))
+                            if ($EnableResume -eq $true)
                             {
                                 Write-Log -Message "Resume File $ResumeFile is available to resume this operation after you have re-connected the Exchange Session" -Verbose
                                 Write-Log -Message "Resume Recipient ID is $ID" -Verbose
@@ -1274,7 +1280,10 @@ Function Get-ExchangePermission
                     Catch
                     {
                         $myerror = $_
-                        Write-Log -Message $myError.tostring() -EntryType Failed -ErrorLog -Verbose
+                        Write-Log -Message $message -EntryType Failed -ErrorLog -Verbose
+                        $exitmessage = "Exchange Session Failed/Disconnected during permission processing for ID $ID. The next Log entry is the error from the Exchange Session."
+                        Write-Log -Message $exitmessage -EntryType Notification -ErrorLog -Verbose
+                        Write-Log -Message $myError.tostring() -ErrorLog -Verbose
                         if ($EnableResume -eq $true)
                         {
                             Write-Log -Message "Resume File $ResumeFile is available to resume this operation after you have re-connected the Exchange Session" -Verbose
@@ -1288,35 +1297,42 @@ Function Get-ExchangePermission
                     }
                 }#Foreach recipient in set
             )# end ExportedPermissions
-            Try
+            if ($ExportedPermissions.Count -ge 1)
             {
-                $message = "Export $($ExportedPermissions.Count) Exported Permissions to File $ExportedExchangePermissionsFile."
-                Write-Log -Message $message -EntryType Attempting
-                switch ($PSCmdlet.ParameterSetName -eq 'Resume')
+                Try
                 {
-                    $true
+                    $message = "Export $($ExportedPermissions.Count) Exported Permissions to File $ExportedExchangePermissionsFile."
+                    Write-Log -Message $message -EntryType Attempting
+                    switch ($PSCmdlet.ParameterSetName -eq 'Resume')
                     {
-                        $ExportedPermissions | Export-Csv -Path $ExportedExchangePermissionsFile -Append -Encoding UTF8 -ErrorAction Stop -NoTypeInformation #-Force
+                        $true
+                        {
+                            $ExportedPermissions | Export-Csv -Path $ExportedExchangePermissionsFile -Append -Encoding UTF8 -ErrorAction Stop -NoTypeInformation #-Force
+                        }
+                        $false
+                        {
+                            $ExportedPermissions | Export-Csv -Path $ExportedExchangePermissionsFile -NoClobber -Encoding UTF8 -ErrorAction Stop -NoTypeInformation
+                        }
                     }
-                    $false
+                    Write-Log -Message $message -EntryType Succeeded
+                    if ($KeepExportedPermissionsInGlobalVariable -eq $true)
                     {
-                        $ExportedPermissions | Export-Csv -Path $ExportedExchangePermissionsFile -NoClobber -Encoding UTF8 -ErrorAction Stop -NoTypeInformation
+                        Write-Log -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + "ExportedExchangePermissions") for recovery/manual export."
+                        Set-Variable -Name $($BeginTimeStamp + "ExportedExchangePermissions") -Value $ExportedPermissions -Scope Global
                     }
                 }
-                Write-Log -Message $message -EntryType Succeeded
-                if ($KeepExportedPermissionsInGlobalVariable -eq $true)
+                Catch
                 {
-                    Write-Log -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + "ExportedExchangePermissions") for recovery/manual export."
+                    $myerror = $_
+                    Write-Log -Message $message -EntryType Failed -ErrorLog -Verbose
+                    Write-Log -Message $myError.tostring() -ErrorLog
+                    Write-Log -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + "ExportedExchangePermissions") for recovery/manual export if desired/required.  This is separate from performing a Resume with a Resume file." -verbose
                     Set-Variable -Name $($BeginTimeStamp + "ExportedExchangePermissions") -Value $ExportedPermissions -Scope Global
                 }
             }
-            Catch
+            else
             {
-                $myerror = $_
-                Write-Log -Message $message -EntryType Failed -ErrorLog -Verbose
-                Write-Log -Message $myError.tostring() -ErrorLog
-                Write-Log -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + "ExportedExchangePermissions") for recovery/manual export if desired/required.  This is separate from performing a Resume with a Resume file." -verbose
-                Set-Variable -Name $($BeginTimeStamp + "ExportedExchangePermissions") -Value $ExportedPermissions -Scope Global
+                Write-Log -Message "No Permissions were generated for export by this operation.  Check the logs for errors if this is unexpected." -EntryType Notification -Verbose
             }
         }#end End
     }
