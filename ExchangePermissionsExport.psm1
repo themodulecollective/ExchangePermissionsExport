@@ -1176,6 +1176,8 @@ Function Get-ExchangePermission
         End
         {
             #Set Up to Loop through Mailboxes/Recipients
+            $message = "First Permission Identity will be $($Script:PermissionIdentity)"
+            Write-Log -message $message -EntryType Notification
             $ISRCounter = $ResumeIndex
             $ExportedPermissions = @(
                 :nextISR Foreach ($ISR in $InScopeRecipients[$ResumeIndex..$($InScopeRecipientCount - 1)])
@@ -1270,9 +1272,10 @@ Function Get-ExchangePermission
                                 Write-Log -Message "Resume File $ResumeFile is available to resume this operation after you have re-connected the Exchange Session" -Verbose
                                 Write-Log -Message "Resume Recipient ID is $ID" -Verbose
                                 $ResumeIDFile = Export-ResumeID -ID $ID -outputFolderPath $OutputFolderPath -TimeStamp $BeginTimeStamp -NextPermissionID $Script:PermissionIdentity
-                                Write-Log -Message "Resume ID exported to file $resumeIDFile" -Verbose
+                                Write-Log -Message "Resume ID $ID exported to file $resumeIDFile" -Verbose
+                                Write-Log -Message "Next Permission Identity $($Script:PermissionIdentity) exported to file $resumeIDFile" -Verbose
                                 $message = "Run `'Get-ExchangePermission -ResumeFile $ResumeFile`' and also specify any common parameters desired (such as -verbose) since common parameters are not included in the Resume Data File."
-                                Write-Log -Message $message -EntryType Notification
+                                Write-Log -Message $message -EntryType Notification -verbose
                             }
                             Break nextISR
                         }
@@ -1289,7 +1292,8 @@ Function Get-ExchangePermission
                             Write-Log -Message "Resume File $ResumeFile is available to resume this operation after you have re-connected the Exchange Session" -Verbose
                             Write-Log -Message "Resume Recipient ID is $ID" -Verbose
                             $ResumeIDFile = Export-ResumeID -ID $ID -outputFolderPath $OutputFolderPath -TimeStamp $BeginTimeStamp -NextPermissionID $Script:PermissionIdentity
-                            Write-Log -Message "Resume ID exported to file $resumeIDFile" -Verbose
+                            Write-Log -Message "Resume ID $ID exported to file $resumeIDFile" -Verbose
+                            Write-Log -Message "Next Permission Identity $($Script:PermissionIdentity) exported to file $resumeIDFile" -Verbose
                             $message = "Run `'Get-ExchangePermission -ResumeFile $ResumeFile -ExchangeSession [your re-connected Exchange session variable]`' and also specify any common parameters desired (such as -verbose) since common parameters are not included in the Resume Data File."
                             Write-Log -Message $message -EntryType Notification -verbose
                         }
