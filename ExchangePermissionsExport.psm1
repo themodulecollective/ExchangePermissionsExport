@@ -831,29 +831,6 @@ function Expand-GroupPermission
 ###################################################################
 Function Get-ExchangePermission
     {
-        #ToDo
-        #Add an attribute to the permission object which indicates if the target/permholder were in the mailboxes scope
-        #add excluded prefixes with split on \?
-        #add scoping by OU? 
-        #integrate EXO recipients as a filter of some sort?
-        #implement explicit garbage collection. 
-        #Add Forwarding detection/export
-        #Add Calendar Permissions -- in progress
-        #Add checking for In Scope Recipients when using parameter set scoped to only run get-sendonbehalf and get-mailboxpermissions when the recipient is a mailbox.
-        #Add Resume capability for broken session scenario -- done
-        #use get-group and/or get-user when get-recipient fails to get an object -- done
-        #Fix Fullaccess to leverage SID History and Inheritance options -- done
-        #Make inheritance work for expanded group perms, too. right now will say false for all which isn't correct. -- done
-        #fix ugly out-file hack -- done
-        #fix denies --done
-        #globalsendas -- done
-        ##recip instead of mailbox -- done just for globalsendas
-        #sidhistory support -- done
-        #AD connection -- done
-        #inheritance switch and output -- done
-        #hard-code sendas guid -- done
-        #add genericall -- done
-        #add group detection for SendOnBehalf -- done
         [cmdletbinding(DefaultParameterSetName = 'AllMailboxes')]
         param
         (

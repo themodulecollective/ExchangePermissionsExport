@@ -1,0 +1,23 @@
+# To Do Items
+
+- [ ] Add an attribute to the permission object which indicates if the target/permholder were in the mailboxes scope
+- [ ] add excluded prefixes with split on \?
+- [ ] add scoping by OU?
+- [ ] implement explicit garbage collection.
+- [ ] Add Forwarding detection/export
+- [ ] Add Calendar Permissions-- in progress
+- [ ] Add checking for In Scope Recipients when using parameter set scoped to only run get-sendonbehalf and get-mailboxpermissions when the recipient is a mailbox.
+- [x] Add Resume capability for broken session scenario-- done
+- [x] use get-group and/or get-user when get-recipient fails to get an object-- done
+- [x] Fix Fullaccess to leverage SID History and Inheritance options-- done
+- [x] Make inheritance work for expanded group perms, too. right now will say false for all which isn't correct.-- done
+- [x] fix ugly out-file hack-- done
+- [x] fix denies--done
+- [x] globalsendas-- done
+- [x] #recip instead of mailbox-- done just for globalsendas
+- [x] sidhistory support-- done
+- [x] AD connection-- done
+- [x] inheritance switch and output-- done
+- [x] hard-code sendas guid-- done
+- [x] add genericall-- done
+- [x] add group detection for SendOnBehalf-- done
