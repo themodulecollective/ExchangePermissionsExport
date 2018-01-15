@@ -190,7 +190,7 @@ function Get-TrusteeObject
                 {
                     if ($ExchangeOrganizationIsInExchangeOnline -and $TrusteeIdentity -like '*\*')
                     {
-                        $trusteeObject = $null
+                        Write-Output -InputObject $null
                     }
                     else
                     {
@@ -228,6 +228,11 @@ function Get-TrusteeObject
         if ($null -eq $trusteeObject -and $null -ne $TrusteeIdentity -and -not [string]::IsNullOrEmpty($TrusteeIdentity) -and -not $UnfoundIdentitiesHash.ContainsKey($TrusteeIdentity))
         {
             $UnfoundIdentitiesHash.$TrusteeIdentity = $null
+        }
+        if ($null -ne $trusteeObject -and $trusteeObject.Count -ge 2)
+        {
+            #TrusteeIdentity is ambiguous.  Need to implement and AmbiguousIdentitiesHash for testing/reporting
+            $trusteeObject = $null
         }
         Write-Output -InputObject $trusteeObject
     }
@@ -307,7 +312,7 @@ Function Get-SendOnBehalfPermission
                                 TrusteeIdentity = $sb.objectguid.guid
                                 TrusteeRecipientObject = $trusteeRecipient
                                 PermissionType = 'SendOnBehalf'
-                                AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
+                                AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {$null {'Undetermined'} '*group*' {'GroupMembership'} Default {'Direct'}}
                                 SourceExchangeOrganization = $ExchangeOrganization
                                 IsInherited = $false
                             }
@@ -514,7 +519,7 @@ function Get-SendASPermissionsViaExchange
                             TrusteeIdentity = $sa.$IdentityProperty
                             TrusteeRecipientObject = $trusteeRecipient
                             PermissionType = 'SendAs'
-                            AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
+                            AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {$null {'Undetermined'} '*group*' {'GroupMembership'} Default {'Direct'}}
                             IsInherited = $sa.IsInherited
                             SourceExchangeOrganization = $ExchangeOrganization
                         }
@@ -594,7 +599,7 @@ function Get-SendASPermisssionsViaLocalLDAP
                             TrusteeIdentity = $sa.$IdentityProperty
                             TrusteeRecipientObject = $trusteeRecipient
                             PermissionType = 'SendAs'
-                            AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
+                            AssignmentType = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {$null {'Undetermined'} '*group*' {'GroupMembership'} Default {'Direct'}}
                             IsInherited = $sa.IsInherited
                             SourceExchangeOrganization = $ExchangeOrganization
                         }
@@ -931,6 +936,12 @@ Function Get-ExchangePermission
                     Write-Log -Message "Calling Invocation = $($MyInvocation.Line)" -EntryType Notification
                     Write-Log -Message "Provided Exchange Session is Running in Exchange Organzation $ExchangeOrganization" -EntryType Notification
                     $ResumeIndex = getarrayIndexForIdentity -array $InScopeRecipients -property 'guid' -Value $ResumeIdentity -ErrorAction Stop
+                    if ($null -eq $ResumeIndex -or $ResumeIndex.gettype().name -notlike '*int*')
+                    {
+                        $message = "ResumeIndex is invalid.  Check/Edit the *ResumeID.xml file for a valid ResumeIdentity GUID."
+                        Write-Log -Message $message -ErrorLog -EntryType Failed
+                        Throw($message)
+                    }
                     Write-Log -Message "Resume index set to $ResumeIndex based on ResumeIdentity $resumeIdentity" -EntryType Notification
                 }
                 $false
@@ -1142,153 +1153,167 @@ Function Get-ExchangePermission
         End
         {
             #Set Up to Loop through Mailboxes/Recipients
+            $message = "First Permission Identity will be $($Script:PermissionIdentity)"
+            Write-Log -message $message -EntryType Notification
             $ISRCounter = $ResumeIndex
             $ExportedPermissions = @(
-            :nextISR Foreach ($ISR in $InScopeRecipients[$ResumeIndex..$($InScopeRecipientCount - 1)])
-            {
-                Try
+                :nextISR Foreach ($ISR in $InScopeRecipients[$ResumeIndex..$($InScopeRecipientCount - 1)])
                 {
-                    $ISRCounter++
-                    $ID = $ISR.guid.guid
-                    if ($excludedRecipientGUIDHash.ContainsKey($ISR.guid.Guid))
+                    Try
                     {
-                        Write-Log -Message "Excluding Excluded Recipient $ID"
-                        continue nextISR
-                    }
-                    $message = "Collect permissions for $($ID)"
-                    Write-Progress -Activity $message -status "Items processed: $($ISRCounter) of $($InScopeRecipientCount)" -percentComplete (($ISRCounter / $InScopeRecipientCount)*100)
-                    Write-Log -Message $message -EntryType Attempting
-                    $PermissionExportObjects = @(
-                        If (($IncludeSendOnBehalf) -and (!($GlobalSendAs)))
+                        $ISRCounter++
+                        $ID = $ISR.guid.guid
+                        if ($excludedRecipientGUIDHash.ContainsKey($ISR.guid.Guid))
                         {
-                            Write-Verbose -Message "Getting SendOnBehalf Permissions for Target $ID"
-                            Get-SendOnBehalfPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -ExcludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -HRPropertySet $HRPropertySet -DomainPrincipalHash $DomainPrincipalHash -UnfoundIdentitiesHash $UnfoundIdentitiesHash
+                            Write-Log -Message "Excluding Excluded Recipient $ID"
+                            continue nextISR
                         }
-                        If (($IncludeFullAccess) -and (!($GlobalSendAs)))
-                        {
-                            Write-Verbose -Message "Getting FullAccess Permissions for Target $ID"
-                            Get-FullAccessPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -dropInheritedPermissions $dropInheritedPermissions -UnfoundIdentitiesHash $UnfoundIdentitiesHash
-                        }
-                        #Get Send As Users
-                        If (($IncludeSendAs) -or ($GlobalSendAs))
-                        {
-                            Write-Verbose -Message "Getting SendAS Permissions for Target $ID"
-                            if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsInsteadOfADOrLDAP)
+                        $message = "Collect permissions for $($ID)"
+                        Write-Progress -Activity $message -status "Items processed: $($ISRCounter) of $($InScopeRecipientCount)" -percentComplete (($ISRCounter / $InScopeRecipientCount)*100)
+                        Write-Log -Message $message -EntryType Attempting
+                        $PermissionExportObjects = @(
+                            If (($IncludeSendOnBehalf) -and (!($GlobalSendAs)))
                             {
-                                Write-Verbose -Message "Getting SendAS Permissions for Target $ID Via Exchange Commands"
-                                Get-SendASPermissionsViaExchange -TargetMailbox $ISR -ExchangeSession $ExchangeSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
+                                Write-Verbose -Message "Getting SendOnBehalf Permissions for Target $ID"
+                                Get-SendOnBehalfPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -ExcludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -HRPropertySet $HRPropertySet -DomainPrincipalHash $DomainPrincipalHash -UnfoundIdentitiesHash $UnfoundIdentitiesHash
                             }
-                            else
+                            If (($IncludeFullAccess) -and (!($GlobalSendAs)))
                             {
-                                Write-Verbose -Message "Getting SendAS Permissions for Target $ID Via LDAP Commands"
-                                Get-SendASPermisssionsViaLocalLDAP -TargetMailbox $ISR -ExchangeSession $ExchangeSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedRecipientGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnlin $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
+                                Write-Verbose -Message "Getting FullAccess Permissions for Target $ID"
+                                Get-FullAccessPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $ExchangeSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -dropInheritedPermissions $dropInheritedPermissions -UnfoundIdentitiesHash $UnfoundIdentitiesHash
                             }
-                        }
-                    )
-                    if ($expandGroups -eq $true)
-                    {
-                        Write-Verbose -Message "Expanding Group Based Permissions for Target $ID"
-                        $splat = @{
-                            Permission = $PermissionExportObjects
-                            ObjectGUIDHash = $ObjectGUIDHash
-                            SIDHistoryHash = $SIDHistoryRecipientHash
-                            excludedTrusteeGUIDHash = $excludedTrusteeGUIDHash
-                            UnfoundIdentitiesHash = $UnfoundIdentitiesHash
-                            HRPropertySet = $HRPropertySet
-                            exchangeSession = $ExchangeSession
-                            TargetMailbox = $ISR
-                        }
-                        if ($dropExpandedParentGroupPermissions -eq $true)
-                        {$splat.dropExpandedParentGroupPermissions = $true}
-                        if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsInsteadOfADOrLDAP)
-                        {$splat.UseExchangeCommandsInsteadOfADOrLDAP = $true}
-                        $PermissionExportObjects = @(Expand-GroupPermission @splat)
-                    }
-                    if (Test-ExchangeSession -Session $ExchangeSession)
-                    {
-                        if ($PermissionExportObjects.Count -eq 0 -and -not $ExcludeNonePermissionOutput -eq $true)
+                            #Get Send As Users
+                            If (($IncludeSendAs) -or ($GlobalSendAs))
+                            {
+                                Write-Verbose -Message "Getting SendAS Permissions for Target $ID"
+                                if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsInsteadOfADOrLDAP)
+                                {
+                                    Write-Verbose -Message "Getting SendAS Permissions for Target $ID Via Exchange Commands"
+                                    Get-SendASPermissionsViaExchange -TargetMailbox $ISR -ExchangeSession $ExchangeSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
+                                }
+                                else
+                                {
+                                    Write-Verbose -Message "Getting SendAS Permissions for Target $ID Via LDAP Commands"
+                                    Get-SendASPermisssionsViaLocalLDAP -TargetMailbox $ISR -ExchangeSession $ExchangeSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedRecipientGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnlin $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
+                                }
+                            }
+                        )
+                        if ($expandGroups -eq $true)
                         {
-                            $GPEOParams = @{
+                            Write-Verbose -Message "Expanding Group Based Permissions for Target $ID"
+                            $splat = @{
+                                Permission = $PermissionExportObjects
+                                ObjectGUIDHash = $ObjectGUIDHash
+                                SIDHistoryHash = $SIDHistoryRecipientHash
+                                excludedTrusteeGUIDHash = $excludedTrusteeGUIDHash
+                                UnfoundIdentitiesHash = $UnfoundIdentitiesHash
+                                HRPropertySet = $HRPropertySet
+                                exchangeSession = $ExchangeSession
                                 TargetMailbox = $ISR
-                                TrusteeIdentity = 'Not Applicable'
-                                TrusteeRecipientObject = $null
-                                PermissionType = 'None'
-                                AssignmentType = 'None'
-                                SourceExchangeOrganization = $ExchangeOrganization
-                                None = $true
                             }
-                            $NonPerm = New-PermissionExportObject @GPEOParams
-                            Write-Output $NonPerm
+                            if ($dropExpandedParentGroupPermissions -eq $true)
+                            {$splat.dropExpandedParentGroupPermissions = $true}
+                            if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsInsteadOfADOrLDAP)
+                            {$splat.UseExchangeCommandsInsteadOfADOrLDAP = $true}
+                            $PermissionExportObjects = @(Expand-GroupPermission @splat)
                         }
-                        elseif ($PermissionExportObjects.Count -gt 0)
+                        if (Test-ExchangeSession -Session $ExchangeSession)
                         {
-                            Write-Output $PermissionExportObjects
+                            if ($PermissionExportObjects.Count -eq 0 -and -not $ExcludeNonePermissionOutput -eq $true)
+                            {
+                                $GPEOParams = @{
+                                    TargetMailbox = $ISR
+                                    TrusteeIdentity = 'Not Applicable'
+                                    TrusteeRecipientObject = $null
+                                    PermissionType = 'None'
+                                    AssignmentType = 'None'
+                                    SourceExchangeOrganization = $ExchangeOrganization
+                                    None = $true
+                                }
+                                $NonPerm = New-PermissionExportObject @GPEOParams
+                                Write-Output $NonPerm
+                            }
+                            elseif ($PermissionExportObjects.Count -gt 0)
+                            {
+                                Write-Output $PermissionExportObjects
+                            }
+                            Write-Log -Message $message -EntryType Succeeded
                         }
-                        Write-Log -Message $message -EntryType Succeeded
+                        else
+                        {
+                            Write-Log -Message $message -EntryType Failed -ErrorLog -Verbose
+                            $exitmessage = "Test-ExchangeSession detected Exchange Session Failed/Disconnected during permission processing for ID $ID."
+                            Write-Log -Message $exitmessage -EntryType Notification -ErrorLog -Verbose
+                            if ($EnableResume -eq $true)
+                            {
+                                Write-Log -Message "Resume File $ResumeFile is available to resume this operation after you have re-connected the Exchange Session" -Verbose
+                                Write-Log -Message "Resume Recipient ID is $ID" -Verbose
+                                $ResumeIDFile = Export-ResumeID -ID $ID -outputFolderPath $OutputFolderPath -TimeStamp $BeginTimeStamp -NextPermissionID $Script:PermissionIdentity
+                                Write-Log -Message "Resume ID $ID exported to file $resumeIDFile" -Verbose
+                                Write-Log -Message "Next Permission Identity $($Script:PermissionIdentity) exported to file $resumeIDFile" -Verbose
+                                $message = "Run `'Get-ExchangePermission -ResumeFile $ResumeFile`' and also specify any common parameters desired (such as -verbose) since common parameters are not included in the Resume Data File."
+                                Write-Log -Message $message -EntryType Notification -verbose
+                            }
+                            Break nextISR
+                        }
                     }
-                    else
+                    Catch
                     {
+                        $myerror = $_
                         Write-Log -Message $message -EntryType Failed -ErrorLog -Verbose
-                        $exitmessage = "Exchange Session Failed/Disconnected during permission processing for ID $ID."
+                        $exitmessage = "Exchange Session Failed/Disconnected during permission processing for ID $ID. The next Log entry is the error from the Exchange Session."
                         Write-Log -Message $exitmessage -EntryType Notification -ErrorLog -Verbose
-                        if ($PSBoundParameters.ContainsKey('EnableResume'))
+                        Write-Log -Message $myError.tostring() -ErrorLog -Verbose
+                        if ($EnableResume -eq $true)
                         {
                             Write-Log -Message "Resume File $ResumeFile is available to resume this operation after you have re-connected the Exchange Session" -Verbose
                             Write-Log -Message "Resume Recipient ID is $ID" -Verbose
-                            $ResumeIDFile = Export-ResumeID -ID $ID -outputFolderPath $OutputFolderPath -TimeStamp $BeginTimeStamp -NextPermissionID $Script:PermissionIdentity++
-                            Write-Log -Message "Resume ID exported to file $resumeIDFile" -Verbose
-                            $message = "Run `'Get-ExchangePermission -ResumeFile $ResumeFile`' and also specify any common parameters desired (such as -verbose) since common parameters are not included in the Resume Data File."
-                            Write-Log -Message $message -EntryType Notification
+                            $ResumeIDFile = Export-ResumeID -ID $ID -outputFolderPath $OutputFolderPath -TimeStamp $BeginTimeStamp -NextPermissionID $Script:PermissionIdentity
+                            Write-Log -Message "Resume ID $ID exported to file $resumeIDFile" -Verbose
+                            Write-Log -Message "Next Permission Identity $($Script:PermissionIdentity) exported to file $resumeIDFile" -Verbose
+                            $message = "Run `'Get-ExchangePermission -ResumeFile $ResumeFile -ExchangeSession [your re-connected Exchange session variable]`' and also specify any common parameters desired (such as -verbose) since common parameters are not included in the Resume Data File."
+                            Write-Log -Message $message -EntryType Notification -verbose
                         }
                         Break nextISR
+                    }
+                }#Foreach recipient in set
+            )# end ExportedPermissions
+            if ($ExportedPermissions.Count -ge 1)
+            {
+                Try
+                {
+                    $message = "Export $($ExportedPermissions.Count) Exported Permissions to File $ExportedExchangePermissionsFile."
+                    Write-Log -Message $message -EntryType Attempting
+                    switch ($PSCmdlet.ParameterSetName -eq 'Resume')
+                    {
+                        $true
+                        {
+                            $ExportedPermissions | Export-Csv -Path $ExportedExchangePermissionsFile -Append -Encoding UTF8 -ErrorAction Stop -NoTypeInformation #-Force
+                        }
+                        $false
+                        {
+                            $ExportedPermissions | Export-Csv -Path $ExportedExchangePermissionsFile -NoClobber -Encoding UTF8 -ErrorAction Stop -NoTypeInformation
+                        }
+                    }
+                    Write-Log -Message $message -EntryType Succeeded
+                    if ($KeepExportedPermissionsInGlobalVariable -eq $true)
+                    {
+                        Write-Log -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + "ExportedExchangePermissions") for recovery/manual export."
+                        Set-Variable -Name $($BeginTimeStamp + "ExportedExchangePermissions") -Value $ExportedPermissions -Scope Global
                     }
                 }
                 Catch
                 {
                     $myerror = $_
-                    Write-Log -Message $myError.tostring() -EntryType Failed -ErrorLog -Verbose
-                    if ($EnableResume -eq $true)
-                    {
-                        Write-Log -Message "Resume File $ResumeFile is available to resume this operation after you have re-connected the Exchange Session" -Verbose
-                        Write-Log -Message "Resume Recipient ID is $ID" -Verbose
-                        $ResumeIDFile = Export-ResumeID -ID $ID -outputFolderPath $OutputFolderPath -TimeStamp $BeginTimeStamp -NextPermissionID $Script:PermissionIdentity
-                        Write-Log -Message "Resume ID exported to file $resumeIDFile" -Verbose
-                        $message = "Run `'Get-ExchangePermission -ResumeFile $ResumeFile -ExchangeSession [your re-connected Exchange session variable]`' and also specify any common parameters desired (such as -verbose) since common parameters are not included in the Resume Data File."
-                        Write-Log -Message $message -EntryType Notification -verbose
-                    }
-                    Break nextISR
-                }
-            }#Foreach recipient in set
-            )# end ExportedPermissions
-            Try
-            {
-                $message = "Export $($ExportedPermissions.Count) Exported Permissions to File $ExportedExchangePermissionsFile."
-                Write-Log -Message $message -EntryType Attempting
-                switch ($PSCmdlet.ParameterSetName -eq 'Resume')
-                {
-                    $true
-                    {
-                        $ExportedPermissions | Export-Csv -Path $ExportedExchangePermissionsFile -Append -Encoding UTF8 -ErrorAction Stop -NoTypeInformation #-Force
-                    }
-                    $false
-                    {
-                        $ExportedPermissions | Export-Csv -Path $ExportedExchangePermissionsFile -NoClobber -Encoding UTF8 -ErrorAction Stop -NoTypeInformation
-                    }
-                }
-                Write-Log -Message $message -EntryType Succeeded
-                if ($KeepExportedPermissionsInGlobalVariable -eq $true)
-                {
-                    Write-Log -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + "ExportedExchangePermissions") for recovery/manual export."
+                    Write-Log -Message $message -EntryType Failed -ErrorLog -Verbose
+                    Write-Log -Message $myError.tostring() -ErrorLog
+                    Write-Log -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + "ExportedExchangePermissions") for recovery/manual export if desired/required.  This is separate from performing a Resume with a Resume file." -verbose
                     Set-Variable -Name $($BeginTimeStamp + "ExportedExchangePermissions") -Value $ExportedPermissions -Scope Global
                 }
             }
-            Catch
+            else
             {
-                $myerror = $_
-                Write-Log -Message $message -EntryType Failed -ErrorLog -Verbose
-                Write-Log -Message $myError.tostring() -ErrorLog
-                Write-Log -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + "ExportedExchangePermissions") for recovery/manual export if desired/required.  This is separate from performing a Resume with a Resume file." -verbose
-                Set-Variable -Name $($BeginTimeStamp + "ExportedExchangePermissions") -Value $ExportedPermissions -Scope Global
+                Write-Log -Message "No Permissions were generated for export by this operation.  Check the logs for errors if this is unexpected." -EntryType Notification -Verbose
             }
         }#end End
     }
