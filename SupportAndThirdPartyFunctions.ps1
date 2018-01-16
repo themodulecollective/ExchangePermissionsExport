@@ -461,6 +461,10 @@ function GetExchangePSSession
             ConfigurationName = 'Microsoft.Exchange'
             Credential = $Credential
         }
+        if ($null -ne $PSSessionOption)
+        {
+            $NewPsSessionParams.PSSessionOption = $PSSessionOption
+        }
         switch ($PSCmdlet.ParameterSetName)
         {
             'ExchangeOnline'
@@ -554,6 +558,7 @@ Function Connect-ExchangeOrganization
         }
         if ($null -ne $PSSessionOption)
         {
+            $script:PSSessionOption = $PSSessionOption
             $GetExchangePSSessionParams.PSSessionOption = $PSSessionOption
         }
         switch ($PSCmdlet.ParameterSetName)
