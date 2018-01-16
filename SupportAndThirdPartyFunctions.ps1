@@ -309,40 +309,6 @@ Function Get-SendASRightGUID
             [GUID]$right.RightsGuid.Value
     }
 #end Function Get-SendASRightGUID
-Function Test-ExchangeSession
-    {
-        [CmdletBinding()]
-        param
-        (
-            $Session
-        )
-        switch ($Session.State -eq 'Opened')
-        {
-            $true
-            {
-                Try
-                {
-                    $TestCommandResult = invoke-command -Session $Session -ScriptBlock {Get-OrganizationConfig -ErrorAction Stop | Select-Object -ExpandProperty Identity | Select-Object -ExpandProperty Name} -ErrorAction Stop
-                    switch (-not [string]::IsNullOrEmpty($TestCommandResult))
-                    {
-                        $true
-                        {Write-Output -InputObject $true}
-                        $false
-                        {Write-Output -InputObject $false}
-                    }
-                }
-                Catch
-                {
-                    Write-Output -InputObject $false
-                }
-            }
-            $false
-            {
-                Write-Output -InputObject $false
-            }
-        }
-    }
-#end Function Test-ExchangeSession
 Function Export-ExchangePermissionExportResumeData
     {
         [CmdletBinding()]
@@ -472,4 +438,143 @@ function GetArrayIndexForIdentity
         )
         Write-Verbose -Message 'Using Property Match for Index'
         [array]::indexof(($array.$property).guid,$value)
-    }#Get-ArrayIndexForValue
+    }
+#end function Get-ArrayIndexForValue
+function GetExchangePSSession
+    {
+        [CmdletBinding(DefaultParameterSetName = 'ExchangeOnline')]
+        param
+        (
+            [parameter(Mandatory)]
+            [pscredential]$Credential = $script:Credential
+            ,
+            [parameter(Mandatory,ParameterSetName = 'ExchangeOnline')]
+            [switch]$ExchangeOnline
+            ,
+            [parameter(Mandatory,ParameterSetName = 'ExchangeOnPremises')]
+            [string]$ExchangeServer
+            ,
+            [System.Management.Automation.Remoting.PSSessionOption]$PSSessionOption
+        )
+        $NewPsSessionParams = @{
+            ErrorAction = 'Stop'
+            ConfigurationName = 'Microsoft.Exchange'
+            Credential = $Credential
+        }
+        switch ($PSCmdlet.ParameterSetName)
+        {
+            'ExchangeOnline'
+            {
+                $NewPsSessionParams.ConnectionURI = 'https://outlook.office365.com/powershell-liveid/'
+                $NewPsSessionParams.Authentication = 'Basic'
+            }
+            'ExchangeOnPremises'
+            {
+                $NewPsSessionParams.ConnectionURI = 'http://' + $ExchangeServer + '/PowerShell/'
+                $NewPsSessionParams.Authentication = 'Kerberos'
+            }
+        }
+        $ExchangeSession = New-PSSession @NewPsSessionParams
+        if ($PSCmdlet.ParameterSetName -eq 'ExchangeOnPremises')
+        {
+            Invoke-Command -Session $ExchangeSession -ScriptBlock {Set-ADServerSettings -ViewEntireForest $true -ErrorAction 'Stop'} -ErrorAction Stop
+        }
+        Write-Output -InputObject $ExchangeSession
+    }
+#end Function Get-ExchangePSSession
+Function TestExchangePSSession
+    {
+        [CmdletBinding()]
+        param
+        (
+            [System.Management.Automation.Runspaces.PSSession]$PSSession = $script:PSSession
+        )
+        switch ($PSSession.State -eq 'Opened')
+        {
+            $true
+            {
+                Try
+                {
+                    $TestCommandResult = invoke-command -Session $PSSession -ScriptBlock {Get-OrganizationConfig -ErrorAction Stop | Select-Object -ExpandProperty Identity | Select-Object -ExpandProperty Name} -ErrorAction Stop
+                    switch (-not [string]::IsNullOrEmpty($TestCommandResult))
+                    {
+                        $true
+                        {Write-Output -InputObject $true}
+                        $false
+                        {Write-Output -InputObject $false}
+                    }
+                }
+                Catch
+                {
+                    Write-Output -InputObject $false
+                }
+            }
+            $false
+            {
+                Write-Output -InputObject $false
+            }
+        }
+    }
+#end Function TestExchangePSSession
+Function RemoveExchangePSSession
+    {
+        [CmdletBinding()]
+        param
+        (
+            [System.Management.Automation.Runspaces.PSSession]$PSSession = $script:PSSession
+        )
+        Remove-PSSession -Session $PsSession -ErrorAction SilentlyContinue
+    }
+#end Function RemoveExchangePSSession
+Function Connect-ExchangeOrganization
+    {
+        [CmdletBinding(DefaultParameterSetName = 'ExchangeOnline')]
+        param
+        (
+            [parameter(Mandatory,ParameterSetName = 'ExchangeOnline')]
+            [switch]$ExchangeOnline
+            ,
+            [parameter(Mandatory,ParameterSetName = 'ExchangeOnPremises')]
+            [string]$ExchangeOnPremisesServer
+            ,
+            [parameter(Mandatory)]
+            [pscredential]$Credential
+            ,
+            [System.Management.Automation.Remoting.PSSessionOption]$PSSessionOption
+        )
+        $script:Credential = $Credential
+        #since this is user facing we always assume that if called the existing session needs to be replaced
+        if ($null -ne $script:PsSession -and $script:PsSession -is [System.Management.Automation.Runspaces.PSSession])
+        {
+            Remove-PSSession -Session $script:PsSession -ErrorAction SilentlyContinue
+        }
+        $GetExchangePSSessionParams = @{
+            ErrorAction = 'Stop'
+            Credential = $script:Credential
+        }
+        if ($null -ne $PSSessionOption)
+        {
+            $GetExchangePSSessionParams.PSSessionOption = $PSSessionOption
+        }
+        switch ($PSCmdlet.ParameterSetName)
+        {
+            'ExchangeOnline'
+            {
+                $Script:OrganizationType = 'ExchangeOnline'
+                $GetExchangePSSessionParams.ExchangeOnline = $true
+            }
+            'ExchangeOnPremises'
+            {
+                $Script:OrganizationType = 'ExchangeOnPremises'
+                $Script:ExchangeOnPremisesServer = $ExchangeOnPremisesServer
+                $GetExchangePSSessionParams.ExchangeServer = $ExchangeOnPremisesServer
+            }
+        }
+        $script:PsSession = GetExchangePSSession @GetExchangePSSessionParams
+    }
+#end Function Set-ExchangePermissionsExportOrganization
+function WriteUserInstructionError
+{
+    $message = "You must call the Connect-ExchangePermissionsExportOrganization function before calling any other cmdlets"
+    throw($message)
+}
