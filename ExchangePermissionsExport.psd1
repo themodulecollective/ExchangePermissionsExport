@@ -24,7 +24,7 @@
     CompanyName = 'Exact Solutions'
     
     # Copyright statement for this module
-    Copyright = '(c) 2017. All rights reserved.'
+    Copyright = '(c) 2018. All rights reserved.'
     
     # Description of the functionality provided by this module
     # Description = ''
@@ -66,8 +66,8 @@
     #NestedModules = @('PSMenu.psm1')
     
     # Functions to export from this module
-    #FunctionsToExport = '*'
-    FunctionsToExport = '*-*'
+    FunctionsToExport = '*'
+    #FunctionsToExport = '*-*'
     
     # Cmdlets to export from this module
     #CmdletsToExport = '*'

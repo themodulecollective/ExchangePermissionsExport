@@ -2,7 +2,7 @@
 ###################################################################
 #Get/Export Permission Functions
 ###################################################################
-Function Get-SIDHistoryRecipientHash 
+Function Get-SIDHistoryRecipientHash
     {
         [cmdletbinding()]
         param
@@ -10,7 +10,7 @@ Function Get-SIDHistoryRecipientHash
             [parameter(Mandatory)]
             $ActiveDirectoryDrive
             ,
-            $ExchangeSession
+            [System.Management.Automation.Runspaces.PSSession]$ExchangeSession
         )#End param
 
         Push-Location
@@ -149,7 +149,7 @@ function Get-TrusteeObject
             ,
             [hashtable]$UnfoundIdentitiesHash
             ,
-            $ExchangeSession
+            [System.Management.Automation.Runspaces.PSSession]$ExchangeSession
             ,
             $ExchangeOrganizationIsInExchangeOnline
         )
@@ -617,7 +617,7 @@ function Get-GroupMemberExpandedViaExchange
         (
             [string]$Identity
             ,
-            $ExchangeSession
+            [System.Management.Automation.Runspaces.PSSession]$ExchangeSession
             ,
             $ExchangeOrganizationIsInExchangeOnline
             ,
@@ -674,7 +674,7 @@ function Get-GroupMemberExpandedViaLocalLDAP
         (
             [string]$Identity #distinguishedName
             ,
-            $ExchangeSession
+            [System.Management.Automation.Runspaces.PSSession]$ExchangeSession
             ,
             $hrPropertySet
             ,
@@ -740,7 +740,7 @@ function Expand-GroupPermission
             ,
             $HRPropertySet
             ,
-            $exchangeSession
+            [System.Management.Automation.Runspaces.PSSession]$ExchangeSession
             ,
             $dropExpandedParentGroupPermissions
             ,
@@ -902,7 +902,6 @@ Function Get-ExchangePermission
             [Parameter(ParameterSetName = 'Resume',Mandatory)]
             [ValidateScript({Test-Path -Path $_})]
             [string]$ResumeFile
-
         )#End Param
         Begin
         {
@@ -934,7 +933,7 @@ Function Get-ExchangePermission
                     $script:LogPath = Join-Path -path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations.log')
                     $script:ErrorLogPath = Join-Path -path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations-ERRORS.log')
                     Write-Log -Message "Calling Invocation = $($MyInvocation.Line)" -EntryType Notification
-                    Write-Log -Message "Provided Exchange Session is Running in Exchange Organzation $ExchangeOrganization" -EntryType Notification
+                    Write-Log -Message "Exchange Session is Running in Exchange Organzation $ExchangeOrganization" -EntryType Notification
                     $ResumeIndex = getarrayIndexForIdentity -array $InScopeRecipients -property 'guid' -Value $ResumeIdentity -ErrorAction Stop
                     if ($null -eq $ResumeIndex -or $ResumeIndex.gettype().name -notlike '*int*')
                     {
@@ -1217,7 +1216,7 @@ Function Get-ExchangePermission
                             {$splat.UseExchangeCommandsInsteadOfADOrLDAP = $true}
                             $PermissionExportObjects = @(Expand-GroupPermission @splat)
                         }
-                        if (Test-ExchangeSession -Session $ExchangeSession)
+                        if (Test-ExchangePSSession -Session $ExchangeSession)
                         {
                             if ($PermissionExportObjects.Count -eq 0 -and -not $ExcludeNonePermissionOutput -eq $true)
                             {
@@ -1242,7 +1241,7 @@ Function Get-ExchangePermission
                         else
                         {
                             Write-Log -Message $message -EntryType Failed -ErrorLog -Verbose
-                            $exitmessage = "Test-ExchangeSession detected Exchange Session Failed/Disconnected during permission processing for ID $ID."
+                            $exitmessage = "Test-ExchangePSSession detected Exchange Session Failed/Disconnected during permission processing for ID $ID."
                             Write-Log -Message $exitmessage -EntryType Notification -ErrorLog -Verbose
                             if ($EnableResume -eq $true)
                             {
