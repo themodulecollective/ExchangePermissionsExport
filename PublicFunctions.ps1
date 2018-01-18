@@ -606,7 +606,6 @@ Function Get-SendASRightGUID
         $dse = [ADSI]"LDAP://Rootdse"
         $ext = [ADSI]("LDAP://CN=Extended-Rights," + $dse.ConfigurationNamingContext)
         $dn = [ADSI]"LDAP://$($dse.DefaultNamingContext)"
-        $dsLookFor = New-Object System.DirectoryServices.DirectorySearcher($dn)
         $permission = "Send As"
         $right = $ext.psbase.Children | Where-Object { $_.DisplayName -eq $permission }
         [GUID]$right.RightsGuid.Value
