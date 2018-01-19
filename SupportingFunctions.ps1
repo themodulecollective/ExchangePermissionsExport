@@ -89,19 +89,19 @@ Function WriteLog
             #Write to Log file if LogPreference is not $false and LogPath has been provided
             if (-not [string]::IsNullOrWhiteSpace($Local:LogPath))
             {
-                Write-Output -InputObject $Message | Out-File -FilePath $Local:LogPath -Append
+                $Message | Out-File -FilePath $Local:LogPath -Append
             }
             else
             {
                 Write-Error -Message 'No LogPath has been provided. Writing Log Entry to script module variable UnwrittenLogEntries' -ErrorAction SilentlyContinue
                 if (Test-Path -Path variable:script:UnwrittenLogEntries)
                 {
-                    $Script:UnwrittenLogEntries += Write-Output -InputObject $Message
+                    $Script:UnwrittenLogEntries += $Message
                 }
                 else
                 {
                     $Script:UnwrittenLogEntries = @()
-                    $Script:UnwrittenLogEntries += Write-Output -InputObject $Message
+                    $Script:UnwrittenLogEntries += $Message
                 }
             }
             #if ErrorLog switch is present also write log to Error Log
@@ -115,18 +115,18 @@ Function WriteLog
                 }
                 if (-not [string]::IsNullOrWhiteSpace($Local:ErrorLogPath))
                 {
-                    Write-Output -InputObject $Message | Out-File -FilePath $Local:ErrorLogPath -Append
+                    $Message | Out-File -FilePath $Local:ErrorLogPath -Append
                 }
                 else
                 {
                     if (Test-Path -Path variable:script:UnwrittenErrorLogEntries)
                     {
-                        $Script:UnwrittenErrorLogEntries += Write-Output -InputObject $Message 
+                        $Script:UnwrittenErrorLogEntries += $Message 
                     }
                     else
                     {
                         $Script:UnwrittenErrorLogEntries = @()
-                        $Script:UnwrittenErrorLogEntries += Write-Output -InputObject $Message
+                        $Script:UnwrittenErrorLogEntries += $Message
                     }
                 }
             }
@@ -171,7 +171,7 @@ function GetAllParametersWithAValue
                 }
             }
         )
-        Write-Output -InputObject $AllParametersWithAValue
+        $AllParametersWithAValue
     }
 #end function Get-AllParametersWithAValue
 function GetArrayIndexForIdentity
@@ -230,7 +230,7 @@ function GetExchangePSSession
         {
             Invoke-Command -Session $ExchangeSession -ScriptBlock {Set-ADServerSettings -ViewEntireForest $true -ErrorAction 'Stop'} -ErrorAction Stop
         }
-        Write-Output -InputObject $ExchangeSession
+        $ExchangeSession
     }
 #end Function Get-ExchangePSSession
 function GetGetExchangePSSessionParams
@@ -270,22 +270,16 @@ Function TestExchangePSSession
                 Try
                 {
                     $TestCommandResult = invoke-command -Session $PSSession -ScriptBlock {Get-OrganizationConfig -ErrorAction Stop | Select-Object -ExpandProperty Identity | Select-Object -ExpandProperty Name} -ErrorAction Stop
-                    switch (-not [string]::IsNullOrEmpty($TestCommandResult))
-                    {
-                        $true
-                        {Write-Output -InputObject $true}
-                        $false
-                        {Write-Output -InputObject $false}
-                    }
+                    $(-not [string]::IsNullOrEmpty($TestCommandResult))
                 }
                 Catch
                 {
-                    Write-Output -InputObject $false
+                    $false
                 }
             }
             $false
             {
-                Write-Output -InputObject $false
+                $false
             }
         }
     }

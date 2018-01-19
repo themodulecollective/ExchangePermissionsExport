@@ -469,11 +469,11 @@ Function Export-ExchangePermission
                                     None = $true
                                 }
                                 $NonPerm = NewPermissionExportObject @GPEOParams
-                                Write-Output $NonPerm
+                                $NonPerm
                             }
                             elseif ($PermissionExportObjects.Count -gt 0)
                             {
-                                Write-Output $PermissionExportObjects
+                                $PermissionExportObjects
                             }
                             WriteLog -Message $message -EntryType Succeeded
                         }
