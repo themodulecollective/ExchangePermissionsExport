@@ -828,7 +828,18 @@ function GetCalendarPermission
         {
             $true
             {
-                $user = $rcp.user.ADRecipient.guid.guid
+                switch ($rcp.user.usertype.value)
+                {
+                    'Internal'
+                    {
+                        $user = $rcp.user.ADRecipient.guid.guid
+                    }
+                    'External'
+                    {
+                        $user = $rcp.user.DisplayName
+                    }
+                }
+                
                 Write-Verbose -message "Trustee Identity is $user" -Verbose
             }
             $false
