@@ -828,7 +828,8 @@ function GetCalendarPermission
         {
             $true
             {
-                $user = $rcp.user.ADRecipient.guid.guid #need to test this with Exchange On Premises
+                $user = $rcp.user.ADRecipient.guid.guid
+                Write-Verbose -message "Trustee Identity is $user" -Verbose
             }
             $false
             {
