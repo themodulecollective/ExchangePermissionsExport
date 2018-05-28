@@ -820,7 +820,7 @@ function GetCalendarPermission
         }
     )
     #filter anon and default permissions
-    $RawCalendarPermissions | Where-Object -FilterScript {$_.User -notlike "Anonymous" -and $_.User -notlike "Default"}
+    $RawCalendarPermissions = @($RawCalendarPermissions | Where-Object -FilterScript {$_.User -notlike "Anonymous" -and $_.User -notlike "Default"})
     #process the permissions for export
     foreach ($rcp in $RawCalendarPermissions)
     {
