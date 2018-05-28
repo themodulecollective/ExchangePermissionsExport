@@ -780,6 +780,8 @@ function GetCalendarPermission
         ,
         $ExchangeOrganization
         ,
+        $ExchangeOrganizationIsInExchangeOnline
+        ,
         $HRPropertySet #Property set for recipient object inclusion in object lookup hashtables
     )
     GetCallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
@@ -822,7 +824,17 @@ function GetCalendarPermission
     #process the permissions for export
     foreach ($rcp in $RawCalendarPermissions)
     {
-        $user = $rcp.user.ADRecipient.guid.guid #need to test this with Exchange On Premises
+        switch ($ExchangeOrganizationIsInExchangeOnline)
+        {
+            $true
+            {
+                $user = $rcp.user.ADRecipient.guid.guid #need to test this with Exchange On Premises
+            }
+            $false
+            {
+                $user = $rcp.user
+            }
+        }
         $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $user -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
         $FolderAccessRights = $rcp.AccessRights -join '|'
         switch ($null -eq $trusteeRecipient)
