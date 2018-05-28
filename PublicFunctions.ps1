@@ -85,6 +85,10 @@ Function Export-ExchangePermission
             [Parameter(ParameterSetName = 'AllMailboxes',Mandatory)]
             [bool]$IncludeSendAs = $true
             ,
+            [parameter(ParameterSetName = 'Scoped',Mandatory)]
+            [Parameter(ParameterSetName = 'AllMailboxes',Mandatory)]
+            [bool]$IncludeCalendar = $true
+            ,
             [bool]$expandGroups = $true
             ,
             [bool]$dropExpandedParentGroupPermissions = $false
@@ -156,10 +160,7 @@ Function Export-ExchangePermission
                     $ExportedExchangePermissionsFile = $ImportedExchangePermissionsExportResumeData.ExportedExchangePermissionsFile
                     foreach ($v in $ImportedExchangePermissionsExportResumeData.ExchangePermissionsExportParameters)
                     {
-                        if ($v.name -ne 'ExchangeSession') #why are we doing this?
-                        {
-                            Set-Variable -Name $v.name -Value $v.value -Force
-                        }
+                        Set-Variable -Name $v.name -Value $v.value -Force
                     }
                     $script:LogPath = Join-Path -path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations.log')
                     $script:ErrorLogPath = Join-Path -path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations-ERRORS.log')
@@ -369,7 +370,6 @@ Function Export-ExchangePermission
                 $message = $message + " to file $ResumeFile"
                 WriteLog -Message $message -EntryType Succeeded
             }
-
             #these have to be populated as we go
             $DomainPrincipalHash = @{}
             $UnfoundIdentitiesHash = @{}
@@ -377,8 +377,6 @@ Function Export-ExchangePermission
             {
                 $script:ExpandedGroupsNonGroupMembershipHash = @{}
             }
-
-            #EndRegion BuildLookupHashtables
         }
         End
         {
@@ -419,6 +417,11 @@ Function Export-ExchangePermission
                             {
                                 Write-Verbose -Message "Getting FullAccess Permissions for Target $ID"
                                 GetFullAccessPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $Script:PSSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -dropInheritedPermissions $dropInheritedPermissions -UnfoundIdentitiesHash $UnfoundIdentitiesHash
+                            }
+                            If (($IncludeCalendar) -and (!($GlobalSendAs)))
+                            {
+                                Write-Verbose -Message "Getting Calendar Permissions for Target $ID"
+                                GetCalendarPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $Script:PSSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
                             }
                             #Get Send As Users
                             If (($IncludeSendAs) -or ($GlobalSendAs))
