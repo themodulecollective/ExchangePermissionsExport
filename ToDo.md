@@ -1,11 +1,13 @@
 # To Do Items
 
+- [ ] Improve the resume functionality and code readability
+- [ ] Extensive testing against Exchange On Premises for SIDHistory and other on premises specific features.
 - [ ] Add an attribute to the permission object which indicates if the target/permholder were in the mailboxes scope
 - [ ] add excluded prefixes with split on \?
 - [ ] add scoping by OU?
 - [ ] implement explicit garbage collection.
 - [ ] Add Forwarding detection/export
-- [ ] Add Calendar Permissions-- in progress
+- [x] Add Calendar Permissions Export
 - [ ] Add checking for In Scope Recipients when using parameter set scoped to only run get-sendonbehalf and get-mailboxpermissions when the recipient is a mailbox.
 - [x] Add Resume capability for broken session scenario-- done
 - [x] use get-group and/or get-user when get-recipient fails to get an object-- done
