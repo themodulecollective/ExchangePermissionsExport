@@ -838,9 +838,7 @@ function GetCalendarPermission
                     {
                         $user = $rcp.user.DisplayName
                     }
-                }
-                
-                Write-Verbose -message "Trustee Identity is $user" -Verbose
+                }               
             }
             $false
             {
