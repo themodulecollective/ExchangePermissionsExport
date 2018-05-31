@@ -12,7 +12,7 @@
     RootModule = 'ExchangePermissionsExport.psm1'
     
     # Version number of this module.
-    ModuleVersion = '2.0.1'
+    ModuleVersion = '2.1.0'
     
     # ID used to uniquely identify this module
     GUID = 'f002252b-bbda-4a1e-9fb0-0a194bb1fada'
