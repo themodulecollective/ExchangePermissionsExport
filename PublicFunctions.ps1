@@ -73,27 +73,27 @@ Function Export-ExchangePermission
             [parameter()]#These will be resolved to trustee objects
             [string[]]$ExcludedTrusteeIdentities
             ,
-            [parameter(ParameterSetName = 'Scoped',Mandatory)]
-            [Parameter(ParameterSetName = 'AllMailboxes',Mandatory)]
+            [parameter(ParameterSetName = 'Scoped')]
+            [Parameter(ParameterSetName = 'AllMailboxes')]
             [bool]$IncludeSendOnBehalf = $true
             ,
-            [parameter(ParameterSetName = 'Scoped',Mandatory)]
-            [Parameter(ParameterSetName = 'AllMailboxes',Mandatory)]
+            [parameter(ParameterSetName = 'Scoped')]
+            [Parameter(ParameterSetName = 'AllMailboxes')]
             [bool]$IncludeFullAccess = $true
             ,
-            [parameter(ParameterSetName = 'Scoped',Mandatory)]
-            [Parameter(ParameterSetName = 'AllMailboxes',Mandatory)]
+            [parameter(ParameterSetName = 'Scoped')]
+            [Parameter(ParameterSetName = 'AllMailboxes')]
             [bool]$IncludeSendAs = $true
             ,
-            [parameter(ParameterSetName = 'Scoped',Mandatory)]
-            [Parameter(ParameterSetName = 'AllMailboxes',Mandatory)]
+            [parameter(ParameterSetName = 'Scoped')]
+            [Parameter(ParameterSetName = 'AllMailboxes')]
             [bool]$IncludeCalendar = $true
             ,
             [bool]$expandGroups = $true
             ,
             [bool]$dropExpandedParentGroupPermissions = $false
             ,
-            [bool]$dropInheritedPermissions = $false
+            [bool]$dropInheritedPermissions = $true
             ,
             [bool]$IncludeSIDHistory = $false
             ,
