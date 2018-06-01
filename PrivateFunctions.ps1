@@ -900,6 +900,8 @@ function NewPermissionExportObject
         $TargetMailbox
         ,
         [parameter(Mandatory)]
+        [AllowNull()]
+        [AllowEmptyString()]
         [string]$TrusteeIdentity
         ,
         [parameter()]
