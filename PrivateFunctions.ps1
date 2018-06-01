@@ -67,6 +67,7 @@ function GetTrusteeObject
     (
         [parameter(Mandatory)]
         [AllowNull()]
+        [AllowEmptyString()]
         [string]$TrusteeIdentity
         ,
         [string[]]$HRPropertySet
@@ -111,7 +112,7 @@ function GetTrusteeObject
                 #Write-Verbose -Message 'Found Trustee in SIDHistoryHash'
                 break
             }
-            {$null -eq $TrusteeIdentity}
+            {$null -eq $TrusteeIdentity -or [string]::IsNullOrEmpty($TrusteeIdentity)}
             {
                 $null
                 break
