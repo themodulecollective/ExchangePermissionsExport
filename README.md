@@ -15,7 +15,7 @@ This module does not provide permissions analysis for migration batching.  Inste
 Import-Module ExchangePermissionsExport
 ```
 
-3. Use the Connect-ExchangeOrganization function to connect to your Exchange environment.  
+3. Use the Connect-ExchangeOrganization function to connect to your Exchange environment.
 
 Exchange Online and Exchange On Premises (2010-2016) are supported. For the credential to use, the minimum Role Group membership required is Recipient Management.  The Export-ExchangePermission function requires that you connect to Exchange via the Connect-ExchangeOrganization function so that it can automatically re-connect as needed during processing. It does not import the session into the local powershell session but instead invokes commands in that session.
 
@@ -61,4 +61,32 @@ In parameters, output, and documenation this module always uses the term 'Truste
  - if group SalesManagers has SendAS permission for mailbox Orders then SalesManagers is the Trustee and Orders is the Target.
  - if Steve is a delegate (holds SendOnBehalf permission) for Jenna, then Steve is the Trustee and Jenna is the target.
 
-This approach avoids other sometimes confusing or ambiguous terminology associated with discussion of permissions in Exchange.  
+This approach avoids other sometimes confusing or ambiguous terminology associated with discussion of permissions in Exchange.
+
+## Output
+
+Each permission is exported with the following details as applicable/possible:
+
+- PermissionIdentity          = [incrementing value for this export]
+- ParentPermissionIdentity    = [if the original permission was a group, the group permission Identity]
+- SourceExchangeOrganization  = [determined from the Get-OrganizationConfig command]
+- TargetObjectGUID            = AD or Exchange Online GUID
+- TargetObjectExchangeGUID    = ExchangeGUID if available
+- TargetDistinguishedName     = AD or Exchange Online Distinguished Name
+- TargetPrimarySMTPAddress    = Primary SMTP Address
+- TargetRecipientType         = RecipientType
+- TargetRecipientTypeDetails  = RecipientTypeDetails
+- TargetFolderPath            = [for folder permissions, the folder path, otherwise - NULL]
+- TargetFolderType            = [for folder permissions, the folder type, otherwise NULL]
+- FolderAccessRights          = [for folder permissions, the folder access rights, delimited by | if necessary]
+- PermissionType              = [FullAccess,SendAS,SendOnBehalf,Folder,None]
+- AssignmentType              = [Direct,Undetermined,Group]
+- TrusteeGroupObjectGUID      = [if the original permission holder was a group, the group AD or Exchange Online object guid]
+- TrusteeIdentity             = [the identifier value from the permission object that was used to try to resolve the Trustee]
+- IsInherited                 = [IsInherited]
+- TrusteeObjectGUID           = [the trustee object's AD guid or Exchange Online Guid if the trustee was resolved]
+- TrusteeExchangeGUID         = [the trustee object's ExchangeGUID if trustee was resolved and an ExchangeGUID was found]
+- TrusteeDistinguishedName    = [the trustee object's distinguished name if the trustee was resolved]
+- TrusteePrimarySMTPAddress   = [the trustee object's primary smtp address if the trustee was resolved and a primary smtp address was found]
+- TrusteeRecipientType        = [Recipient type from the resolved trustee object]
+- TrusteeRecipientTypeDetails = [Recipient type details from the resolved trustee object]
