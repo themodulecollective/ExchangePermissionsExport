@@ -276,7 +276,7 @@ Function TestExchangePSSession
             Try
             {
                 $TestCommandResult = invoke-command -Session $PSSession -ScriptBlock {Get-OrganizationConfig -ErrorAction Stop | Select-Object -ExpandProperty Identity | Select-Object -ExpandProperty Name} -ErrorAction Stop
-                $(-not [string]::IsNullOrEmpty($TestCommandResult))
+                $(-not [string]::IsNullOrWhiteSpace($TestCommandResult))
             }
             Catch
             {
