@@ -279,7 +279,7 @@ Function Export-ExchangePermission
                                         Identity    = $_
                                         ErrorAction = 'Stop'
                                     }
-                                    Invoke-Command -Session $Script:PSSession -ScriptBlock {Get-Recipient @Using:splat | Select-Object -Property $Using:HRPropertySet} -ErrorAction Stop
+                                    Invoke-Command -Session $Script:PSSession -ScriptBlock {Get-Mailbox @Using:splat | Select-Object -Property $Using:HRPropertySet} -ErrorAction Stop
                                 }
                             )
                             WriteLog -Message $message -EntryType Succeeded

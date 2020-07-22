@@ -44,11 +44,11 @@ Function GetSIDHistoryRecipientHash
         $ProgressInterval = [int]($($sidhistoryusers.Count) * .01)
         if ($($sidhistoryusercounter) % $ProgressInterval -eq 0)
         {
-            Write-Progress -Activity $message -status "Items processed: $($sidhistoryusercounter) of $($sidhistoryusers.Count)" -percentComplete (($sidhistoryusercounter / $($sidhistoryusers.Count)) * 100)
+            Write-Progress -Activity $message -Status "Items processed: $($sidhistoryusercounter) of $($sidhistoryusers.Count)" -PercentComplete (($sidhistoryusercounter / $($sidhistoryusers.Count)) * 100)
         }
-        $splat = @{Identity = $shu.ObjectGuid.guid; ErrorAction = 'SilentlyContinue'} #is this a good assumption?
+        $splat = @{Identity = $shu.ObjectGuid.guid; ErrorAction = 'SilentlyContinue' } #is this a good assumption?
         $sidhistoryuserrecipient = $Null
-        $sidhistoryuserrecipient = Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @using:splat} -ErrorAction SilentlyContinue
+        $sidhistoryuserrecipient = Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-Recipient @using:splat } -ErrorAction SilentlyContinue
         If ($null -ne $sidhistoryuserrecipient)
         {
             Foreach ($sidhistorysid in $shu.sidhistory)
@@ -89,30 +89,30 @@ function GetTrusteeObject
         #Write-Verbose -Message "Getting Object for TrusteeIdentity $TrusteeIdentity"
         switch ($TrusteeIdentity)
         {
-            {$UnfoundIdentitiesHash.ContainsKey($_)}
+            { $UnfoundIdentitiesHash.ContainsKey($_) }
             {
                 $null
                 break
             }
-            {$ObjectGUIDHash.ContainsKey($_)}
+            { $ObjectGUIDHash.ContainsKey($_) }
             {
                 $ObjectGUIDHash.$($_)
                 #Write-Verbose -Message 'Found Trustee in ObjectGUIDHash'
                 break
             }
-            {$DomainPrincipalHash.ContainsKey($_)}
+            { $DomainPrincipalHash.ContainsKey($_) }
             {
                 $DomainPrincipalHash.$($_)
                 #Write-Verbose -Message 'Found Trustee in DomainPrincipalHash'
                 break
             }
-            {$SIDHistoryHash.ContainsKey($_)}
+            { $SIDHistoryHash.ContainsKey($_) }
             {
                 $SIDHistoryHash.$($_)
                 #Write-Verbose -Message 'Found Trustee in SIDHistoryHash'
                 break
             }
-            {$null -eq $TrusteeIdentity -or [string]::IsNullOrEmpty($TrusteeIdentity)}
+            { $null -eq $TrusteeIdentity -or [string]::IsNullOrEmpty($TrusteeIdentity) }
             {
                 $null
                 break
@@ -129,14 +129,14 @@ function GetTrusteeObject
                         Identity    = $TrusteeIdentity
                         ErrorAction = 'SilentlyContinue'
                     }
-                    Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Recipient @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
+                    Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-Recipient @using:splat } -ErrorAction SilentlyContinue -OutVariable AddToLookup
                     if ($null -eq $AddToLookup)
                     {
-                        Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
+                        Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-Group @using:splat } -ErrorAction SilentlyContinue -OutVariable AddToLookup
                     }
                     if ($null -eq $AddToLookup)
                     {
-                        Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-User @using:splat} -ErrorAction SilentlyContinue -OutVariable AddToLookup
+                        Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-User @using:splat } -ErrorAction SilentlyContinue -OutVariable AddToLookup
                     }
                 }
             }
@@ -146,12 +146,12 @@ function GetTrusteeObject
     if ($null -ne $AddToLookup -and $AddToLookup.count -gt 0)
     {
         #Write-Verbose -Message "Found Trustee $TrusteeIdentity via new lookup"
-        $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$ObjectGUIDHash.$($_.ExchangeGuid.Guid) = $_} -ErrorAction SilentlyContinue
+        $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process { $ObjectGUIDHash.$($_.ExchangeGuid.Guid) = $_ } -ErrorAction SilentlyContinue
         #Write-Verbose -Message "ObjectGUIDHash Count is $($ObjectGUIDHash.count)"
-        $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$ObjectGUIDHash.$($_.Guid.Guid) = $_} -ErrorAction SilentlyContinue
+        $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process { $ObjectGUIDHash.$($_.Guid.Guid) = $_ } -ErrorAction SilentlyContinue
         if ($TrusteeIdentity -like '*\*' -or $TrusteeIdentity -like '*@*')
         {
-            $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process {$DomainPrincipalHash.$($TrusteeIdentity) = $_} -ErrorAction SilentlyContinue
+            $AddToLookup | Select-Object -Property $HRPropertySet | ForEach-Object -Process { $DomainPrincipalHash.$($TrusteeIdentity) = $_ } -ErrorAction SilentlyContinue
             #Write-Verbose -Message "DomainPrincipalHash Count is $($DomainPrincipalHash.count)"
         }
     }
@@ -202,7 +202,7 @@ Function GetSendOnBehalfPermission
         #doing this in try/catch b/c we might find the recipient is no longer a mailbox . . .
         try
         {
-            $sbTrustees = Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Mailbox @using:splat | Select-Object -ExpandProperty GrantSendOnBehalfTo} -ErrorAction Stop
+            $sbTrustees = Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-Mailbox @using:splat | Select-Object -ExpandProperty GrantSendOnBehalfTo } -ErrorAction Stop
         }
         catch
         {
@@ -243,7 +243,7 @@ Function GetSendOnBehalfPermission
                             TrusteeIdentity            = $sb.objectguid.guid
                             TrusteeRecipientObject     = $trusteeRecipient
                             PermissionType             = 'SendOnBehalf'
-                            AssignmentType             = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {$null {'Undetermined'} '*group*' {'GroupMembership'} Default {'Direct'}}
+                            AssignmentType             = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) { $null { 'Undetermined' } '*group*' { 'GroupMembership' } Default { 'Direct' } }
                             SourceExchangeOrganization = $ExchangeOrganization
                             IsInherited                = $false
                         }
@@ -279,13 +279,13 @@ function GetFullAccessPermission
         $HRPropertySet #Property set for recipient object inclusion in object lookup hashtables
     )
     GetCallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
-    $splat = @{Identity = $TargetMailbox.guid.guid; ErrorAction = 'Stop'}
+    $splat = @{Identity = $TargetMailbox.guid.guid; ErrorAction = 'Stop' }
     $FilterScriptString = '($_.AccessRights -like "*FullAccess*") -and -not ($_.User -like "NT AUTHORITY\SELF") -and -not ($_.Deny -eq $True) -and -not ($_.User -like "S-1-5*")'
     $filterscript = [scriptblock]::Create($FilterScriptString)
     #doing this in try/catch b/c we might find the recipient is no longer a mailbox . . .
     try
     {
-        $faRawPermissions = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-MailboxPermission @using:splat} -ErrorAction Stop) | Where-Object -FilterScript $filterscript
+        $faRawPermissions = @(Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-MailboxPermission @using:splat } -ErrorAction Stop) | Where-Object -FilterScript $filterscript
     }
     catch
     {
@@ -303,7 +303,7 @@ function GetFullAccessPermission
     #drop InheritedPermissions if requested
     if ($dropInheritedPermissions -eq $true)
     {
-        $faRawPermissions = @($faRawPermissions | where-object -filterscript {$_.IsInherited -eq $false})
+        $faRawPermissions = @($faRawPermissions | Where-Object -FilterScript { $_.IsInherited -eq $false })
     }
     foreach ($fa in $faRawPermissions)
     {
@@ -333,7 +333,7 @@ function GetFullAccessPermission
                         TrusteeIdentity            = $user
                         TrusteeRecipientObject     = $trusteeRecipient
                         PermissionType             = 'FullAccess'
-                        AssignmentType             = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
+                        AssignmentType             = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) { '*group*' { 'GroupMembership' } $null { 'Undetermined' } Default { 'Direct' } }
                         IsInherited                = $fa.IsInherited
                         SourceExchangeOrganization = $ExchangeOrganization
                     }
@@ -383,7 +383,7 @@ function GetSendASPermissionsViaExchange
             }
             try
             {
-                $saRawPermissions = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {&($using:command) @using:splat} -ErrorAction Stop)
+                $saRawPermissions = @(Invoke-Command -Session $ExchangeSession -ScriptBlock { &($using:command) @using:splat } -ErrorAction Stop)
             }
             catch
             {
@@ -402,7 +402,7 @@ function GetSendASPermissionsViaExchange
             #Get All AD Permissions
             try
             {
-                $saRawPermissions = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {&($using:command) @using:splat} -ErrorAction Stop)
+                $saRawPermissions = @(Invoke-Command -Session $ExchangeSession -ScriptBlock { &($using:command) @using:splat } -ErrorAction Stop)
             }
             catch
             {
@@ -411,17 +411,17 @@ function GetSendASPermissionsViaExchange
                 WriteLog -Message $myerror.tostring() -ErrorLog -Verbose -EntryType Failed
             }
             #Filter out just the Send-AS Permissions
-            $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript {$_.ExtendedRights -contains 'Send-As'})
+            $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript { $_.ExtendedRights -contains 'Send-As' })
         }
     }
     #Drop Inherited Permissions if Requested
     if ($dropInheritedPermissions)
     {
-        $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript {$_.IsInherited -eq $false})
+        $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript { $_.IsInherited -eq $false })
     }
-    $IdentityProperty = switch ($ExchangeOrganizationIsInExchangeOnline) {$true {'Trustee'} $false {'User'}}
+    $IdentityProperty = switch ($ExchangeOrganizationIsInExchangeOnline) { $true { 'Trustee' } $false { 'User' } }
     #Drop Self Permissions
-    $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript {$_.$IdentityProperty -ne 'NT AUTHORITY\SELF'})
+    $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript { $_.$IdentityProperty -ne 'NT AUTHORITY\SELF' })
     #Lookup Trustee Recipients and export permission if found
     foreach ($sa in $saRawPermissions)
     {
@@ -450,7 +450,7 @@ function GetSendASPermissionsViaExchange
                         TrusteeIdentity            = $sa.$IdentityProperty
                         TrusteeRecipientObject     = $trusteeRecipient
                         PermissionType             = 'SendAs'
-                        AssignmentType             = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {$null {'Undetermined'} '*group*' {'GroupMembership'} Default {'Direct'}}
+                        AssignmentType             = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) { $null { 'Undetermined' } '*group*' { 'GroupMembership' } Default { 'Direct' } }
                         IsInherited                = $sa.IsInherited
                         SourceExchangeOrganization = $ExchangeOrganization
                     }
@@ -491,28 +491,27 @@ function GetSendASPermisssionsViaLocalLDAP
     $SendASRight = [GUID]'ab721a54-1e2f-11d0-9819-00aa0040529b'
     $userDN = [ADSI]("LDAP://$($TargetMailbox.DistinguishedName)")
     $saRawPermissions = @(
-        $userDN.psbase.ObjectSecurity.Access | Where-Object -FilterScript { (($_.ObjectType -eq $SendASRight) -or ($_.ActiveDirectoryRights -eq 'GenericAll')) -and ($_.AccessControlType -eq 'Allow')} | Where-Object -FilterScript {$_.IdentityReference -notlike "NT AUTHORITY\SELF"}| Select-Object identityreference, IsInherited
+        $userDN.psbase.ObjectSecurity.Access | Where-Object -FilterScript { (($_.ObjectType -eq $SendASRight) -or ($_.ActiveDirectoryRights -eq 'GenericAll')) -and ($_.AccessControlType -eq 'Allow') } | Where-Object -FilterScript { $_.IdentityReference -notlike "NT AUTHORITY\SELF" } | Select-Object identityreference, IsInherited
         # Where-Object -FilterScript {($_.identityreference.ToString().split('\')[0]) -notin $ExcludedTrusteeDomains}
         # Where-Object -FilterScript {$_.identityreference -notin $ExcludedTrustees}|
     )
     if ($dropInheritedPermissions -eq $true)
     {
-        $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript {$_.IsInherited -eq $false})
+        $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript { $_.IsInherited -eq $false })
     }
-    $IdentityProperty = switch ($ExchangeOrganizationIsInExchangeOnline) {$true {'Trustee'} $false {'User'}}
     #Drop Self Permissions
-    $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript {$_.$IdentityProperty -ne 'NT AUTHORITY\SELF'})
+    $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript { $_.IdentityReference -ne 'NT AUTHORITY\SELF' })
     #Lookup Trustee Recipients and export permission if found
     foreach ($sa in $saRawPermissions)
     {
-        $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $sa.$IdentityProperty -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
+        $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $sa.IdentityReference -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
         switch ($null -eq $trusteeRecipient)
         {
             $true
             {
                 $npeoParams = @{
                     TargetMailbox              = $TargetMailbox
-                    TrusteeIdentity            = $sa.$IdentityProperty
+                    TrusteeIdentity            = $sa.IdentityReference
                     TrusteeRecipientObject     = $null
                     PermissionType             = 'SendAs'
                     AssignmentType             = 'Undetermined'
@@ -527,10 +526,10 @@ function GetSendASPermisssionsViaLocalLDAP
                 {
                     $npeoParams = @{
                         TargetMailbox              = $TargetMailbox
-                        TrusteeIdentity            = $sa.$IdentityProperty
+                        TrusteeIdentity            = $sa.IdentityReference
                         TrusteeRecipientObject     = $trusteeRecipient
                         PermissionType             = 'SendAs'
-                        AssignmentType             = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {$null {'Undetermined'} '*group*' {'GroupMembership'} Default {'Direct'}}
+                        AssignmentType             = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) { $null { 'Undetermined' } '*group*' { 'GroupMembership' } Default { 'Direct' } }
                         IsInherited                = $sa.IsInherited
                         SourceExchangeOrganization = $ExchangeOrganization
                     }
@@ -571,7 +570,7 @@ function GetGroupMemberExpandedViaExchange
     }
     Try
     {
-        $BaseGroupMemberIdentities = @(Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members})
+        $BaseGroupMemberIdentities = @(Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-Group @using:splat | Select-Object -ExpandProperty Members })
     }
     Catch
     {
@@ -580,17 +579,17 @@ function GetGroupMemberExpandedViaExchange
         WriteLog -Message $MyError.tostring() -EntryType Failed -ErrorLog -Verbose
     }
     Write-Verbose -Message "Got $($BaseGroupmemberIdentities.Count) Base Group Members for Group $Identity"
-    $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {GetTrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash})
+    $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) { GetTrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash })
     $iteration = 0
     $AllResolvedMembers = @(
         do
         {
             $iteration++
-            $BaseGroupMembership | Where-Object -FilterScript {$_.RecipientTypeDetails -notlike '*group*'}
-            $RemainingGroupMembers = @($BaseGroupMembership | Where-Object -FilterScript {$_.RecipientTypeDetails -like '*group*'})
+            $BaseGroupMembership | Where-Object -FilterScript { $_.RecipientTypeDetails -notlike '*group*' }
+            $RemainingGroupMembers = @($BaseGroupMembership | Where-Object -FilterScript { $_.RecipientTypeDetails -like '*group*' })
             Write-Verbose -Message "Got $($RemainingGroupMembers.Count) Remaining Nested Group Members for Group $identity.  Iteration: $iteration"
-            $BaseGroupMemberIdentities = @($RemainingGroupMembers | ForEach-Object {$splat = @{Identity = $_.guid.guid; ErrorAction = 'Stop'}; invoke-command -Session $ExchangeSession -ScriptBlock {Get-Group @using:splat | Select-Object -ExpandProperty Members}})
-            $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) {GetTrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash})
+            $BaseGroupMemberIdentities = @($RemainingGroupMembers | ForEach-Object { $splat = @{Identity = $_.guid.guid; ErrorAction = 'Stop' }; Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-Group @using:splat | Select-Object -ExpandProperty Members } })
+            $BaseGroupMembership = @(foreach ($m in $BaseGroupMemberIdentities) { GetTrusteeObject -TrusteeIdentity $m.objectguid.guid -HRPropertySet $hrPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash })
             Write-Verbose -Message "Got $($baseGroupMembership.count) Newly Explanded Group Members for Group $identity"
         }
         until ($BaseGroupMembership.count -eq 0 -or $iteration -ge $iterationLimit)
@@ -648,7 +647,7 @@ function GetGroupMemberExpandedViaLocalLDAP
         $TrusteeIdentity = $(GetGuidFromByteArray -GuidByteArray $($u.Properties.objectguid)).guid
         $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $TrusteeIdentity -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
         if ($null -ne $trusteeRecipient)
-        {$trusteeRecipient}
+        { $trusteeRecipient }
     }
 }
 #end function GetGroupMemberExpandedViaExchange
@@ -678,8 +677,8 @@ function ExpandGroupPermission
         [switch]$UseExchangeCommandsInsteadOfADOrLDAP
     )
     GetCallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
-    $gPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -like '*Group*'})
-    $ngPermissions = @($Permission | Where-Object -FilterScript {$_.TrusteeRecipientTypeDetails -notlike '*Group*' -or $null -eq $_.TrusteeRecipientTypeDetails})
+    $gPermissions = @($Permission | Where-Object -FilterScript { $_.TrusteeRecipientTypeDetails -like '*Group*' })
+    $ngPermissions = @($Permission | Where-Object -FilterScript { $_.TrusteeRecipientTypeDetails -notlike '*Group*' -or $null -eq $_.TrusteeRecipientTypeDetails })
     if ($gPermissions.Count -ge 1)
     {
         $expandedPermissions = @(
@@ -745,7 +744,7 @@ function ExpandGroupPermission
         if ($expandedPermissions.Count -ge 1)
         {
             #remove any self permissions that came in through expansion
-            $expandedPermissions = @($expandedPermissions | Where-Object -FilterScript {$_.TargetObjectGUID -ne $_.TrusteeObjectGUID})
+            $expandedPermissions = @($expandedPermissions | Where-Object -FilterScript { $_.TargetObjectGUID -ne $_.TrusteeObjectGUID })
         }
         if ($dropExpandedParentGroupPermissions)
         {
@@ -788,20 +787,20 @@ function GetCalendarPermission
     GetCallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
     $Identity = $TargetMailbox.guid.guid
     $TargetFolderPath = '\Calendar'
-    $splat = @{Identity = $Identity + ':' + $TargetFolderPath}
+    $splat = @{Identity = $Identity + ':' + $TargetFolderPath }
     $RawCalendarPermissions = @(
         try
         {
-            Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-MailboxFolderPermission @using:splat} -ErrorAction Stop
+            Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-MailboxFolderPermission @using:splat } -ErrorAction Stop
         }
         catch
         {
             Write-Verbose -Message "Get-MailboxPermission threw an error with Identity $Identity.  Attempting to find localized folder name instead."
             try
             {
-                $CalendarFolderName = Invoke-Command -errorAction Stop -session $ExchangeSession -ScriptBlock {
+                $CalendarFolderName = Invoke-Command -ErrorAction Stop -Session $ExchangeSession -ScriptBlock {
                     Get-MailboxFolderStatistics -Identity $using:Identity
-                } | Where-Object -FilterScript {$_.FolderType -eq "Calendar"} | Select-Object -First 1 | Select-Object -ExpandProperty Name
+                } | Where-Object -FilterScript { $_.FolderType -eq "Calendar" } | Select-Object -First 1 | Select-Object -ExpandProperty Name
                 if ([string]::IsNullOrWhiteSpace($CalendarFolderName))
                 {
                     Write-Verbose -Message "No Calendar Folder found for Identity $Identity"
@@ -811,7 +810,7 @@ function GetCalendarPermission
                     $TargetFolderPath = "\" + $CalendarFolderName
                     #try again with the localized folder name
                     $splat.Identity = $($Identity + ':' + $TargetFolderPath)
-                    Invoke-Command -Session $ExchangeSession -ScriptBlock {Get-MailboxFolderPermission @using:splat} -ErrorAction Stop
+                    Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-MailboxFolderPermission @using:splat } -ErrorAction Stop
                 }
             }
             catch
@@ -821,7 +820,7 @@ function GetCalendarPermission
         }
     )
     #filter anon and default permissions
-    $RawCalendarPermissions = @($RawCalendarPermissions | Where-Object -FilterScript {$_.User -notlike "Anonymous" -and $_.User -notlike "Default"})
+    $RawCalendarPermissions = @($RawCalendarPermissions | Where-Object -FilterScript { $_.User -notlike "Anonymous" -and $_.User -notlike "Default" })
     #process the permissions for export
     foreach ($rcp in $RawCalendarPermissions)
     {
@@ -839,7 +838,7 @@ function GetCalendarPermission
                     {
                         $user = $rcp.user.DisplayName
                     }
-                }               
+                }
             }
             $false
             {
@@ -878,7 +877,7 @@ function GetCalendarPermission
                         TargetFolderType           = 'Calendar'
                         FolderAccessRights         = $FolderAccessRights
                         PermissionType             = 'Folder'
-                        AssignmentType             = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) {'*group*' {'GroupMembership'} $null {'Undetermined'} Default {'Direct'}}
+                        AssignmentType             = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) { '*group*' { 'GroupMembership' } $null { 'Undetermined' } Default { 'Direct' } }
                         IsInherited                = $false
                         SourceExchangeOrganization = $ExchangeOrganization
                     }
@@ -955,8 +954,8 @@ function NewPermissionExportObject
         IsInherited                 = $IsInherited
         TrusteeObjectGUID           = $null
         TrusteeExchangeGUID         = $null
-        TrusteeDistinguishedName    = if ($None) {'none'} else {$null}
-        TrusteePrimarySMTPAddress   = if ($None) {'none'} else {$null}
+        TrusteeDistinguishedName    = if ($None) { 'none' } else { $null }
+        TrusteePrimarySMTPAddress   = if ($None) { 'none' } else { $null }
         TrusteeRecipientType        = $null
         TrusteeRecipientTypeDetails = $null
     }
@@ -1023,7 +1022,7 @@ Function ImportExchangePermissionExportResumeData
     )
     $ImportedExchangePermissionsExportResumeData = Import-Clixml -Path $path -ErrorAction Stop
     $parentpath = Split-Path -Path $path -Parent
-    $ResumeIDFilePath = Join-Path -path $parentpath -ChildPath $($ImportedExchangePermissionsExportResumeData.TimeStamp + 'ExchangePermissionExportResumeID.xml')
+    $ResumeIDFilePath = Join-Path -Path $parentpath -ChildPath $($ImportedExchangePermissionsExportResumeData.TimeStamp + 'ExchangePermissionExportResumeID.xml')
     $ResumeIDs = Import-Clixml -Path $ResumeIDFilePath -ErrorAction Stop
     $ImportedExchangePermissionsExportResumeData.ResumeID = $ResumeIDs.ResumeID
     $ImportedExchangePermissionsExportResumeData.NextPermissionIdentity = $ResumeIDs.NextPermissionIdentity
