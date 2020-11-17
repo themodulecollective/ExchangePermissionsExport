@@ -3,17 +3,41 @@ Function Connect-ExchangeOrganization
     [CmdletBinding(DefaultParameterSetName = 'ExchangeOnline')]
     param
     (
-        [parameter(Mandatory, ParameterSetName = 'ExchangeOnline')]
-        [switch]$ExchangeOnline
-        ,
-        [parameter(Mandatory, ParameterSetName = 'ExchangeOnPremises')]
+        [parameter(ParameterSetName = 'ExchangeOnPremises', Mandatory)]
         [string]$ExchangeOnPremisesServer
+        ,
+        [parameter(Mandatory)]
+        [validateset('ExchangeOnPremises', 'ExchangeOnline')]
+        [string]$ExchangeOrgType
+        ,
+        [parameter(ParameterSetName = 'ExchangeOnline', Mandatory)]
+        [validateset('RemotePowerShellBasicAuth', 'ExchangeOnlineManagement')]
+        [string]$ConnectionMethod
         ,
         [parameter()]
         [pscredential]$Credential
         ,
         [System.Management.Automation.Remoting.PSSessionOption]$PSSessionOption
     )
+
+    switch ($ExchangeOrgType)
+    {
+        'ExchangeOnPremises'
+        {
+            if ([string]::IsNullOrWhiteSpace($ExchangeOnPremisesServer))
+            {
+                throw("Parameter -ExchangeOnPremisesServer is required when -ExchangeOrgType is 'ExchangeOnPremises'")
+            }
+        }
+        'ExchangeOnline'
+        {
+            if ([string]::IsNullOrWhiteSpace($ConnectionMethod))
+            {
+                throw("Parameter -ConnectionMethod is required when -ExchangeOrgType is 'ExchangeOnline'")
+            }
+        }
+    }
+
     $script:Credential = $Credential
     #since this is user facing we always assume that if called the existing session needs to be replaced
     if ($null -ne $script:PsSession -and $script:PsSession -is [System.Management.Automation.Runspaces.PSSession])
@@ -38,6 +62,7 @@ Function Connect-ExchangeOrganization
         {
             $Script:OrganizationType = 'ExchangeOnline'
             $GetExchangePSSessionParams.ExchangeOnline = $true
+            $GetExchangePSSessionParams.ConnectionMethod = $ConnectionMethod
         }
         'ExchangeOnPremises'
         {
@@ -58,7 +83,7 @@ Function Export-ExchangePermission
         [Parameter(ParameterSetName = 'AllMailboxes', Mandatory)]
         [parameter(ParameterSetName = 'Scoped', Mandatory)]
         [parameter(ParameterSetName = 'GlobalSendAs', Mandatory)]
-        [ValidateScript( {TestIsWriteableDirectory -Path $_})]
+        [ValidateScript( { TestIsWriteableDirectory -Path $_ })]
         $OutputFolderPath
         ,
         [parameter(ParameterSetName = 'GlobalSendAs', Mandatory)]
@@ -101,7 +126,7 @@ Function Export-ExchangePermission
         [bool]$IncludeSIDHistory = $false
         ,
         [parameter()]
-        [ValidateScript( {$_.gettype().name -eq 'ADDriveInfo'})]#doing this as a validatescript instead of a type declaration so that this will run on a system that lacks the ActiveDirectory module if the user doesn't need this parameter.
+        [ValidateScript( { $_.gettype().name -eq 'ADDriveInfo' })]#doing this as a validatescript instead of a type declaration so that this will run on a system that lacks the ActiveDirectory module if the user doesn't need this parameter.
         $ActiveDirectoryDrive
         ,
         [switch]$UseExchangeCommandsInsteadOfADOrLDAP
@@ -113,7 +138,7 @@ Function Export-ExchangePermission
         [switch]$KeepExportedPermissionsInGlobalVariable
         ,
         [Parameter(ParameterSetName = 'Resume', Mandatory)]
-        [ValidateScript( {Test-Path -Path $_})]
+        [ValidateScript( { Test-Path -Path $_ })]
         [string]$ResumeFile
     )#End Param
     Begin
@@ -145,7 +170,7 @@ Function Export-ExchangePermission
             }
         }
         $BeginTimeStamp = Get-Date -Format yyyyMMdd-HHmmss
-        $ExchangeOrganization = Invoke-Command -Session $Script:PSSession -ScriptBlock {Get-OrganizationConfig | Select-Object -ExpandProperty Identity | Select-Object -ExpandProperty Name}
+        $ExchangeOrganization = Invoke-Command -Session $Script:PSSession -ScriptBlock { Get-OrganizationConfig | Select-Object -ExpandProperty Identity | Select-Object -ExpandProperty Name }
         $ExchangeOrganizationIsInExchangeOnline = $ExchangeOrganization -like '*.onmicrosoft.com'
         switch ($PSCmdlet.ParameterSetName -eq 'Resume')
         {
@@ -165,8 +190,8 @@ Function Export-ExchangePermission
                 {
                     Set-Variable -Name $v.name -Value $v.value -Force
                 }
-                $script:LogPath = Join-Path -path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations.log')
-                $script:ErrorLogPath = Join-Path -path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations-ERRORS.log')
+                $script:LogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations.log')
+                $script:ErrorLogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations-ERRORS.log')
                 WriteLog -Message "Calling Invocation = $($MyInvocation.Line)" -EntryType Notification
                 WriteLog -Message "Exchange Session is Running in Exchange Organzation $ExchangeOrganization" -EntryType Notification
                 $ResumeIndex = getarrayIndexForIdentity -array $InScopeRecipients -property 'guid' -Value $ResumeIdentity -ErrorAction Stop
@@ -180,8 +205,8 @@ Function Export-ExchangePermission
             }
             $false
             {
-                $script:LogPath = Join-Path -path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations.log')
-                $script:ErrorLogPath = Join-Path -path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations-ERRORS.log')
+                $script:LogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations.log')
+                $script:ErrorLogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations-ERRORS.log')
                 WriteLog -Message "Calling Invocation = $($MyInvocation.Line)" -EntryType Notification
                 WriteLog -Message "Provided Exchange Session is Running in Exchange Organzation $ExchangeOrganization" -EntryType Notification
                 $ExportedExchangePermissionsFile = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExportedExchangePermissions.csv')
@@ -190,7 +215,7 @@ Function Export-ExchangePermission
                 if ($IncludeSIDHistory -eq $true)
                 {
                     if ($null -eq $ActiveDirectoryDrive)
-                    {throw("If IncludeSIDHistory is required an Active Directory PS Drive connection to the appropriate domain or forest must be provided")}
+                    { throw("If IncludeSIDHistory is required an Active Directory PS Drive connection to the appropriate domain or forest must be provided") }
                 }
                 #create a property set for storing of recipient data during processing.  We don't need all attributes in memory/storage.
                 $HRPropertySet = @('*name*', '*addr*', 'RecipientType*', '*Id', 'Identity', 'GrantSendOnBehalfTo')
@@ -208,7 +233,7 @@ Function Export-ExchangePermission
                                     Identity    = $_
                                     ErrorAction = 'Stop'
                                 }
-                                Invoke-Command -Session $Script:PSSession -ScriptBlock {Get-Recipient @Using:splat | Select-Object -Property $using:HRPropertySet} -ErrorAction 'Stop'
+                                Invoke-Command -Session $Script:PSSession -ScriptBlock { Get-Recipient @Using:splat | Select-Object -Property $using:HRPropertySet } -ErrorAction 'Stop'
                             }
                         )
                         WriteLog -Message $message -EntryType Succeeded
@@ -242,7 +267,7 @@ Function Export-ExchangePermission
                                     Identity    = $_
                                     ErrorAction = 'Stop'
                                 }
-                                Invoke-Command -Session $Script:PSSession -ScriptBlock {Get-Recipient @Using:splat | Select-Object -Property $using:HRPropertySet} -ErrorAction 'Stop'
+                                Invoke-Command -Session $Script:PSSession -ScriptBlock { Get-Recipient @Using:splat | Select-Object -Property $using:HRPropertySet } -ErrorAction 'Stop'
                             }
                         )
                         WriteLog -Message $message -EntryType Succeeded
@@ -279,7 +304,7 @@ Function Export-ExchangePermission
                                         Identity    = $_
                                         ErrorAction = 'Stop'
                                     }
-                                    Invoke-Command -Session $Script:PSSession -ScriptBlock {Get-Mailbox @Using:splat | Select-Object -Property $Using:HRPropertySet} -ErrorAction Stop
+                                    Invoke-Command -Session $Script:PSSession -ScriptBlock { Get-Mailbox @Using:splat | Select-Object -Property $Using:HRPropertySet } -ErrorAction Stop
                                 }
                             )
                             WriteLog -Message $message -EntryType Succeeded
@@ -293,7 +318,7 @@ Function Export-ExchangePermission
                                 ResultSize  = 'Unlimited'
                                 ErrorAction = 'Stop'
                             }
-                            $InScopeRecipients = @(Invoke-Command -Session $Script:PSSession -ScriptBlock {Get-Mailbox @Using:splat | Select-Object -Property $Using:HRPropertySet} -ErrorAction Stop)
+                            $InScopeRecipients = @(Invoke-Command -Session $Script:PSSession -ScriptBlock { Get-Mailbox @Using:splat | Select-Object -Property $Using:HRPropertySet } -ErrorAction Stop)
                             WriteLog -Message $message -EntryType Succeeded
                         }#end AllMailboxes
                         'GlobalSendAs'
@@ -305,7 +330,7 @@ Function Export-ExchangePermission
                                 ResultSize  = 'Unlimited'
                                 ErrorAction = 'Stop'
                             }
-                            $InScopeRecipients = @(Invoke-Command -Session $Script:PSSession -ScriptBlock {Get-Recipient @Using:splat | Select-Object -Property $Using:HRPropertySet} -ErrorAction Stop)
+                            $InScopeRecipients = @(Invoke-Command -Session $Script:PSSession -ScriptBlock { Get-Recipient @Using:splat | Select-Object -Property $Using:HRPropertySet } -ErrorAction Stop)
                             WriteLog -Message $message -EntryType Succeeded
                         }#end GlobalSendAS
                     }#end Switch
@@ -334,11 +359,11 @@ Function Export-ExchangePermission
 
                 #Region BuildLookupHashTables
                 WriteLog -Message "Building Recipient Lookup HashTables" -EntryType Notification
-                $ObjectGUIDHash = $InScopeRecipients | Select-object -property $HRPropertySet | Group-Object -AsHashTable -Property Guid -AsString
+                $ObjectGUIDHash = $InScopeRecipients | Select-Object -Property $HRPropertySet | Group-Object -AsHashTable -Property Guid -AsString
                 #Also Add the Exchange GUIDs to this lookup if we are dealing with Exchange Online
                 if ($ExchangeOrganizationIsInExchangeOnline)
                 {
-                    $InScopeRecipients | ForEach-Object -Process {$ObjectGUIDHash.$($_.ExchangeGuid.Guid) = $_}
+                    $InScopeRecipients | ForEach-Object -Process { $ObjectGUIDHash.$($_.ExchangeGuid.Guid) = $_ }
                 }
             }
         }
@@ -392,7 +417,7 @@ Function Export-ExchangePermission
             (
                 $i = $ResumeIndex
                 $i -le $InScopeRecipientCount - 1
-                $(if ($Recovering) {$i = $ResumeIndex} else {$i++})
+                $(if ($Recovering) { $i = $ResumeIndex } else { $i++ })
                 #$ISR in $InScopeRecipients[$ResumeIndex..$()]
             )
             {
@@ -406,7 +431,7 @@ Function Export-ExchangePermission
                     continue nextISR
                 }
                 $message = "Collect permissions for $($ID)"
-                Write-Progress -Activity $message -status "Items processed: $($ISRCounter) of $($InScopeRecipientCount)" -percentComplete (($ISRCounter / $InScopeRecipientCount) * 100)
+                Write-Progress -Activity $message -Status "Items processed: $($ISRCounter) of $($InScopeRecipientCount)" -PercentComplete (($ISRCounter / $InScopeRecipientCount) * 100)
                 Try
                 {
                     WriteLog -Message $message -EntryType Attempting
@@ -456,9 +481,9 @@ Function Export-ExchangePermission
                             TargetMailbox           = $ISR
                         }
                         if ($dropExpandedParentGroupPermissions -eq $true)
-                        {$splat.dropExpandedParentGroupPermissions = $true}
+                        { $splat.dropExpandedParentGroupPermissions = $true }
                         if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsInsteadOfADOrLDAP)
-                        {$splat.UseExchangeCommandsInsteadOfADOrLDAP = $true}
+                        { $splat.UseExchangeCommandsInsteadOfADOrLDAP = $true }
                         $PermissionExportObjects = @(ExpandGroupPermission @splat)
                     }
                     if (TestExchangePSSession -PSSession $Script:PSSession)

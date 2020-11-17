@@ -14,10 +14,10 @@ function TestIsWriteableDirectory
                 if ($IsContainer)
                 {
                     $Item = Get-Item -Path $_
-                    if ($item.PsProvider.Name -eq 'FileSystem') {$true}
-                    else {$false}
+                    if ($item.PsProvider.Name -eq 'FileSystem') { $true }
+                    else { $false }
                 }
-                else {$false}
+                else { $false }
             }
         )]
         [string]$Path
@@ -73,7 +73,7 @@ Function WriteLog
     GetCallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
     $TimeStamp = Get-Date -Format yyyyMMdd-HHmmss
     #Add the Entry Type to the message or add nothing to the message if there is not EntryType specified - preserves legacy functionality and adds new EntryType capability
-    if (-not [string]::IsNullOrWhiteSpace($EntryType)) {$Message = $EntryType + ':' + $Message}
+    if (-not [string]::IsNullOrWhiteSpace($EntryType)) { $Message = $EntryType + ':' + $Message }
     $Message = $TimeStamp + ' ' + $Message
     #check the Log Preference to see if the message should be logged or not
     if ($null -eq $LogPreference -or $LogPreference -eq $true)
@@ -156,13 +156,13 @@ function GetAllParametersWithAValue
     $AllKeys = @($AllParameters.Keys ; $BoundParameters.Keys)
     $AllKeys = @($AllKeys | Sort-Object -Unique)
     Write-Verbose -Message "$($allKeys.count) Parameter Keys Found: $($allKeys -join ';')"
-    $AllKeys = @($AllKeys | Where-Object -FilterScript {$_ -notin @(GetCommonParameter)})
+    $AllKeys = @($AllKeys | Where-Object -FilterScript { $_ -notin @(GetCommonParameter) })
     $AllParametersWithAValue = @(
         foreach ($k in $AllKeys)
         {
             try
             {
-                Get-Variable -Name $k -ErrorAction Stop -Scope 1 | Where-Object -FilterScript {$null -ne $_.Value -and -not [string]::IsNullOrWhiteSpace($_.Value)}
+                Get-Variable -Name $k -ErrorAction Stop -Scope 1 | Where-Object -FilterScript { $null -ne $_.Value -and -not [string]::IsNullOrWhiteSpace($_.Value) }
                 # -Scope $Scope
             }
             catch
@@ -207,6 +207,9 @@ function GetExchangePSSession
         [parameter(Mandatory, ParameterSetName = 'ExchangeOnPremises')]
         [string]$ExchangeServer
         ,
+        [parameter(Mandatory, ParameterSetName = 'ExchangeOnline')]
+        $ConnectionMethod
+        ,
         [System.Management.Automation.Remoting.PSSessionOption]$PSSessionOption
     )
     $NewPsSessionParams = @{
@@ -221,19 +224,43 @@ function GetExchangePSSession
     {
         'ExchangeOnline'
         {
-            $NewPsSessionParams.ConnectionURI = 'https://outlook.office365.com/powershell-liveid/'
-            $NewPsSessionParams.Authentication = 'Basic'
+            switch ($ConnectionMethod)
+            {
+                'RemotePowerShellBasicAuth'
+                {
+                    $NewPsSessionParams.ConnectionURI = 'https://outlook.office365.com/powershell-liveid/'
+                    $NewPsSessionParams.Authentication = 'Basic'
+                    $ExchangeSession = New-PSSession @NewPsSessionParams
+                }
+                'ExchangeOnlineManagement'
+                {
+                    $CEXOParams = @{
+                        ErrorAction = 'Stop'
+                        ShowBanner  = $False
+                    }
+                    try
+                    {
+                        Connect-ExchangeOnline -Credential $Credential @CEXOParams
+                    }
+                    catch
+                    {
+                        Write-Verbose -Verbose -Message "MFA Required $($_.tostring())"
+                        Connect-ExchangeOnline -UserPrincipalName $Credential.UserName @CEXOParams
+                    }
+                    finally
+                    {
+                        $ExchangeSession = Get-PSSession | Where-Object -FilterScript { $_.ConfigurationName -eq 'Microsoft.Exchange' -and $_.Name -like 'ExchangeOnlineInternalSession_*' | Select-Object -First 1 }
+                    }
+                }
+            }
         }
         'ExchangeOnPremises'
         {
             $NewPsSessionParams.ConnectionURI = 'http://' + $ExchangeServer + '/PowerShell/'
             $NewPsSessionParams.Authentication = 'Kerberos'
+            $ExchangeSession = New-PSSession @NewPsSessionParams
+            Invoke-Command -Session $ExchangeSession -ScriptBlock { Set-ADServerSettings -ViewEntireForest $true -ErrorAction 'Stop' } -ErrorAction Stop
         }
-    }
-    $ExchangeSession = New-PSSession @NewPsSessionParams
-    if ($PSCmdlet.ParameterSetName -eq 'ExchangeOnPremises')
-    {
-        Invoke-Command -Session $ExchangeSession -ScriptBlock {Set-ADServerSettings -ViewEntireForest $true -ErrorAction 'Stop'} -ErrorAction Stop
     }
     $ExchangeSession
 }
@@ -275,7 +302,7 @@ Function TestExchangePSSession
         {
             Try
             {
-                $TestCommandResult = invoke-command -Session $PSSession -ScriptBlock {Get-OrganizationConfig -ErrorAction Stop | Select-Object -ExpandProperty Identity | Select-Object -ExpandProperty Name} -ErrorAction Stop
+                $TestCommandResult = Invoke-Command -Session $PSSession -ScriptBlock { Get-OrganizationConfig -ErrorAction Stop | Select-Object -ExpandProperty Identity | Select-Object -ExpandProperty Name } -ErrorAction Stop
                 $(-not [string]::IsNullOrWhiteSpace($TestCommandResult))
             }
             Catch
