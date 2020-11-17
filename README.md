@@ -86,11 +86,6 @@ After establishing your connection, the following pattern is recommended for bes
 
 ```powershell
 
-# On Premises
-
-import-module activedirectory #needs to connect to ADMED domain
-$AD = Get-PSDrive -PSProvider ActiveDirectory
-
 #gets all the full access, delegate, and calendar permissions
 Export-ExchangePermission -OutputFolderPath D:\ExchangeReports\PermissionsExport -IncludeSendOnBehalf $true -IncludeCalendar $true -IncludeFullAccess $true -expandGroups $false -dropInheritedPermissions $true -ActiveDirectoryDrive $AD -ExcludeNonePermissionOutput -AllMailboxes
 
