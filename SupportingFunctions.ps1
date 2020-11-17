@@ -207,8 +207,8 @@ function GetExchangePSSession
         [parameter(Mandatory, ParameterSetName = 'ExchangeOnPremises')]
         [string]$ExchangeServer
         ,
-        [parameter(Mandatory, ParameterSetName = 'ExchangeOnline')]
-        $ConnectionMethod
+        [parameter(ParameterSetName = 'ExchangeOnline')]
+        $ConnectionMethod = $script:ExchangeOnlineConnectionMethod
         ,
         [System.Management.Automation.Remoting.PSSessionOption]$PSSessionOption
     )
@@ -280,6 +280,7 @@ function GetGetExchangePSSessionParams
         'ExchangeOnline'
         {
             $GetExchangePSSessionParams.ExchangeOnline = $true
+            $GetExchangePSSessionParams.ConnectionMethod = $script:ExchangeOnlineConnectionMethod
         }
         'ExchangeOnPremises'
         {

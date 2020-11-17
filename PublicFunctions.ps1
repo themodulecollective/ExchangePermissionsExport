@@ -61,8 +61,9 @@ Function Connect-ExchangeOrganization
         'ExchangeOnline'
         {
             $Script:OrganizationType = 'ExchangeOnline'
+            $Script:ExchangeOnlineConnectionMethod = $ConnectionMethod
             $GetExchangePSSessionParams.ExchangeOnline = $true
-            $GetExchangePSSessionParams.ConnectionMethod = $ConnectionMethod
+            $GetExchangePSSessionParams.ConnectionMethod = $Script:ExchangeOnlineConnectionMethod
         }
         'ExchangeOnPremises'
         {
