@@ -12,7 +12,7 @@
     RootModule        = 'ExchangePermissionsExport.psm1'
 
     # Version number of this module.
-    ModuleVersion     = '3.0.0'
+    ModuleVersion     = '3.0.1'
 
     # ID used to uniquely identify this module
     GUID              = 'f002252b-bbda-4a1e-9fb0-0a194bb1fada'
@@ -21,10 +21,10 @@
     Author            = 'Mike Campbell and Joe Sutherland'
 
     # Company or vendor of this module
-    CompanyName       = 'Exact Solutions'
+    CompanyName       = 'The Module Collective'
 
     # Copyright statement for this module
-    Copyright         = '(c) 2020. All rights reserved.'
+    Copyright         = '(c) 2021. All rights reserved.'
 
     # Description of the functionality provided by this module
     # Description = ''
