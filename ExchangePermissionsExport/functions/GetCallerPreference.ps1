@@ -1,5 +1,6 @@
-function GetCallerPreference
-    {
+Function GetCallerPreference
+{
+    
         <#
         .Synopsis
         Fetches "Preference" variable values from the caller's scope.
@@ -144,5 +145,6 @@ function GetCallerPreference
                 }
             }
         } # end
-    }
-#end function GetCallerPreference
+    
+}
+

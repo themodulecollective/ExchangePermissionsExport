@@ -1,12 +1,12 @@
 ###############################################################################################
 # Import User's Configuration
 ###############################################################################################
-Import-IMConfiguration
+#Import-ExchangePermissionsExportConfiguration
 ###############################################################################################
 # Setup Tab Completion
 ###############################################################################################
 # Tab Completions for IM Definition Names
-$ImDefinitionsScriptBlock = {
+<# $ImDefinitionsScriptBlock = {
   param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
   $MyParams = @{ }
   if ($null -ne $fakeBoundParameter.InstallManager)
@@ -31,4 +31,4 @@ Register-ArgumentCompleter -CommandName @(
   'Set-IMDefinition'
   'Remove-IMDefinition'
   'Update-IMInstall'
-) -ParameterName 'Name' -ScriptBlock $ImDefinitionsScriptBlock
+) -ParameterName 'Name' -ScriptBlock $ImDefinitionsScriptBlock #>

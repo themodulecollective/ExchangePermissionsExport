@@ -2,9 +2,10 @@
 ###############################################################################################
 # Module Variables
 ###############################################################################################
-$ModuleVariableNames = ('IMConfiguration')
+$ModuleVariableNames = ('ExchangePermissionsExportConfiguration', 'ConnectExchangeOrganizationCompleted')
 $ModuleVariableNames.ForEach( { Set-Variable -Scope Script -Name $_ -Value $null })
-enum InstallManager { Chocolatey; Git; PowerShellGet; Manual; WinGet }
+$script:ConnectExchangeOrganizationCompleted = $false
+#enum InstallManager { Chocolatey; Git; PowerShellGet; Manual; WinGet }
 
 ###############################################################################################
 # Module Removal

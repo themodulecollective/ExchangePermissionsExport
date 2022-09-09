@@ -1,83 +1,6 @@
-Function Connect-ExchangeOrganization
-{
-    [CmdletBinding(DefaultParameterSetName = 'ExchangeOnline')]
-    param
-    (
-        [parameter(ParameterSetName = 'ExchangeOnPremises', Mandatory)]
-        [string]$ExchangeOnPremisesServer
-        ,
-        [parameter(Mandatory)]
-        [validateset('ExchangeOnPremises', 'ExchangeOnline')]
-        [string]$ExchangeOrgType
-        ,
-        [parameter(ParameterSetName = 'ExchangeOnline', Mandatory)]
-        [validateset('RemotePowerShellBasicAuth', 'ExchangeOnlineManagement')]
-        [string]$ConnectionMethod
-        ,
-        [parameter()]
-        [pscredential]$Credential
-        ,
-        [System.Management.Automation.Remoting.PSSessionOption]$PSSessionOption
-    )
-
-    switch ($ExchangeOrgType)
-    {
-        'ExchangeOnPremises'
-        {
-            if ([string]::IsNullOrWhiteSpace($ExchangeOnPremisesServer))
-            {
-                throw("Parameter -ExchangeOnPremisesServer is required when -ExchangeOrgType is 'ExchangeOnPremises'")
-            }
-        }
-        'ExchangeOnline'
-        {
-            if ([string]::IsNullOrWhiteSpace($ConnectionMethod))
-            {
-                throw("Parameter -ConnectionMethod is required when -ExchangeOrgType is 'ExchangeOnline'")
-            }
-        }
-    }
-
-    $script:Credential = $Credential
-    #since this is user facing we always assume that if called the existing session needs to be replaced
-    if ($null -ne $script:PsSession -and $script:PsSession -is [System.Management.Automation.Runspaces.PSSession])
-    {
-        Remove-PSSession -Session $script:PsSession -ErrorAction SilentlyContinue
-    }
-    $GetExchangePSSessionParams = @{
-        ErrorAction = 'Stop'
-    }
-    if ($null -ne $script:Credential)
-    {
-        $GetExchangePSSessionParams.Credential = $script:Credential
-    }
-    if ($null -ne $PSSessionOption)
-    {
-        $script:PSSessionOption = $PSSessionOption
-        $GetExchangePSSessionParams.PSSessionOption = $script:PSSessionOption
-    }
-    switch ($PSCmdlet.ParameterSetName)
-    {
-        'ExchangeOnline'
-        {
-            $Script:OrganizationType = 'ExchangeOnline'
-            $Script:ExchangeOnlineConnectionMethod = $ConnectionMethod
-            $GetExchangePSSessionParams.ExchangeOnline = $true
-            $GetExchangePSSessionParams.ConnectionMethod = $Script:ExchangeOnlineConnectionMethod
-        }
-        'ExchangeOnPremises'
-        {
-            $Script:OrganizationType = 'ExchangeOnPremises'
-            $Script:ExchangeOnPremisesServer = $ExchangeOnPremisesServer
-            $GetExchangePSSessionParams.ExchangeServer = $script:ExchangeOnPremisesServer
-        }
-    }
-    $script:PsSession = GetExchangePSSession @GetExchangePSSessionParams
-    $script:ConnectExchangeOrganizationCompleted = $true
-}
-#end Function Connect-ExchangeOrganization
 Function Export-ExchangePermission
 {
+    
     [cmdletbinding(DefaultParameterSetName = 'AllMailboxes')]
     param
     (
@@ -629,17 +552,6 @@ Function Export-ExchangePermission
             WriteLog -Message "No Permissions were generated for export by this operation.  Check the logs for errors if this is unexpected." -EntryType Notification -Verbose
         }
     }#end End
+
 }
-#End Function Export-ExchangePermission
-Function Get-SendASRightGUID
-{
-    #not necessary because the guid is well known but here so you can see how to find it if necessary.
-    #ADSI Adapter: http://social.technet.microsoft.com/wiki/contents/articles/4231.working-with-active-directory-using-powershell-adsi-adapter.aspx
-    $dse = [ADSI]"LDAP://Rootdse"
-    $ext = [ADSI]("LDAP://CN=Extended-Rights," + $dse.ConfigurationNamingContext)
-    $dn = [ADSI]"LDAP://$($dse.DefaultNamingContext)"
-    $permission = "Send As"
-    $right = $ext.psbase.Children | Where-Object { $_.DisplayName -eq $permission }
-    [GUID]$right.RightsGuid.Value
-}
-#end Function Get-SendASRightGUID
+
