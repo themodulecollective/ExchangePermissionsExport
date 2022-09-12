@@ -1,6 +1,6 @@
 Function Export-ExchangePermission
 {
-    
+
     [cmdletbinding(DefaultParameterSetName = 'AllMailboxes')]
     param
     (
@@ -40,6 +40,10 @@ Function Export-ExchangePermission
         [parameter(ParameterSetName = 'Scoped')]
         [Parameter(ParameterSetName = 'AllMailboxes')]
         [bool]$IncludeCalendar = $true
+        ,
+        [parameter(ParameterSetName = 'Scoped')]
+        [Parameter(ParameterSetName = 'AllMailboxes')]
+        [bool]$IncludeAllFolder = $true
         ,
         [bool]$expandGroups = $true
         ,
@@ -121,7 +125,7 @@ Function Export-ExchangePermission
                 $ResumeIndex = getarrayIndexForIdentity -array $InScopeRecipients -property 'guid' -Value $ResumeIdentity -ErrorAction Stop
                 if ($null -eq $ResumeIndex -or $ResumeIndex.gettype().name -notlike '*int*')
                 {
-                    $message = "ResumeIndex is invalid.  Check/Edit the *ResumeID.xml file for a valid ResumeIdentity GUID."
+                    $message = 'ResumeIndex is invalid.  Check/Edit the *ResumeID.xml file for a valid ResumeIdentity GUID.'
                     WriteLog -Message $message -ErrorLog -EntryType Failed
                     Throw($message)
                 }
@@ -139,7 +143,7 @@ Function Export-ExchangePermission
                 if ($IncludeSIDHistory -eq $true)
                 {
                     if ($null -eq $ActiveDirectoryDrive)
-                    { throw("If IncludeSIDHistory is required an Active Directory PS Drive connection to the appropriate domain or forest must be provided") }
+                    { throw('If IncludeSIDHistory is required an Active Directory PS Drive connection to the appropriate domain or forest must be provided') }
                 }
                 #create a property set for storing of recipient data during processing.  We don't need all attributes in memory/storage.
                 $HRPropertySet = @('*name*', '*addr*', 'RecipientType*', '*Id', 'Identity', 'GrantSendOnBehalfTo')
@@ -235,7 +239,7 @@ Function Export-ExchangePermission
                         }#end Scoped
                         'AllMailboxes'
                         {
-                            WriteLog -Message "Operation: Permission retrieval for all mailboxes."
+                            WriteLog -Message 'Operation: Permission retrieval for all mailboxes.'
                             $message = "Get all available mailbox objects in Exchange Organization $ExchangeOrganization."
                             WriteLog -Message $message -EntryType Attempting
                             $splat = @{
@@ -247,7 +251,7 @@ Function Export-ExchangePermission
                         }#end AllMailboxes
                         'GlobalSendAs'
                         {
-                            WriteLog -Message "Operation: Send As Permission retrieval for all recipients."
+                            WriteLog -Message 'Operation: Send As Permission retrieval for all recipients.'
                             $message = "Get all available recipient objects in Exchange Organization $ExchangeOrganization."
                             WriteLog -Message $message -EntryType Attempting
                             $splat = @{
@@ -282,7 +286,7 @@ Function Export-ExchangePermission
                 #EndRegion GetSIDHistoryData
 
                 #Region BuildLookupHashTables
-                WriteLog -Message "Building Recipient Lookup HashTables" -EntryType Notification
+                WriteLog -Message 'Building Recipient Lookup HashTables' -EntryType Notification
                 $ObjectGUIDHash = $InScopeRecipients | Select-Object -Property $HRPropertySet | Group-Object -AsHashTable -Property Guid -AsString
                 #Also Add the Exchange GUIDs to this lookup if we are dealing with Exchange Online
                 if ($ExchangeOrganizationIsInExchangeOnline)
@@ -316,7 +320,7 @@ Function Export-ExchangePermission
                     $ExportExchangePermissionsExportResumeData.ExchangePermissionsExportParameters = @(GetAllParametersWithAValue -boundparameters $PSBoundParameters -allparameters $MyInvocation.MyCommand.Parameters)
                 }
             }
-            $message = "Enable Resume and Export Resume Data"
+            $message = 'Enable Resume and Export Resume Data'
             WriteLog -Message $message -EntryType Attempting
             $ResumeFile = ExportExchangePermissionExportResumeData @ExportExchangePermissionsExportResumeData
             $message = $message + " to file $ResumeFile"
@@ -374,6 +378,11 @@ Function Export-ExchangePermission
                         {
                             Write-Verbose -Message "Getting Calendar Permissions for Target $ID"
                             GetCalendarPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $Script:PSSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+                        }
+                        If (($IncludeAllFolder) -and (!($GlobalSendAs)))
+                        {
+                            Write-Verbose -Message "Getting Calendar Permissions for Target $ID"
+                            GetAllFolderPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $Script:PSSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
                         }
                         #Get Send As Users
                         If (($IncludeSendAs) -or ($GlobalSendAs))
@@ -534,8 +543,8 @@ Function Export-ExchangePermission
                 WriteLog -Message $message -EntryType Succeeded
                 if ($KeepExportedPermissionsInGlobalVariable -eq $true)
                 {
-                    WriteLog -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + "ExportedExchangePermissions") for recovery/manual export."
-                    Set-Variable -Name $($BeginTimeStamp + "ExportedExchangePermissions") -Value $ExportedPermissions -Scope Global
+                    WriteLog -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + 'ExportedExchangePermissions') for recovery/manual export."
+                    Set-Variable -Name $($BeginTimeStamp + 'ExportedExchangePermissions') -Value $ExportedPermissions -Scope Global
                 }
             }
             Catch
@@ -543,15 +552,14 @@ Function Export-ExchangePermission
                 $myerror = $_
                 WriteLog -Message $message -EntryType Failed -ErrorLog -Verbose
                 WriteLog -Message $myError.tostring() -ErrorLog
-                WriteLog -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + "ExportedExchangePermissions") for recovery/manual export if desired/required.  This is separate from performing a Resume with a Resume file." -verbose
-                Set-Variable -Name $($BeginTimeStamp + "ExportedExchangePermissions") -Value $ExportedPermissions -Scope Global
+                WriteLog -Message "Saving Exported Permissions to Global Variable $($BeginTimeStamp + 'ExportedExchangePermissions') for recovery/manual export if desired/required.  This is separate from performing a Resume with a Resume file." -verbose
+                Set-Variable -Name $($BeginTimeStamp + 'ExportedExchangePermissions') -Value $ExportedPermissions -Scope Global
             }
         }
         else
         {
-            WriteLog -Message "No Permissions were generated for export by this operation.  Check the logs for errors if this is unexpected." -EntryType Notification -Verbose
+            WriteLog -Message 'No Permissions were generated for export by this operation.  Check the logs for errors if this is unexpected.' -EntryType Notification -Verbose
         }
     }#end End
 
 }
-

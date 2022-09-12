@@ -26,6 +26,8 @@ $Script:ModuleFiles = @(
     $(Join-Path -Path $functions -ChildPath GetAllParametersWithAValue.ps1)
     $(Join-Path -Path $functions -ChildPath GetArrayIndexForIdentity.ps1)
     $(Join-Path -Path $functions -ChildPath GetCalendarPermission.ps1)
+    $(Join-Path -Path $functions -ChildPath GetFolderPermission.ps1)
+    $(Join-Path -Path $functions -ChildPath GetAllFolderPermission.ps1)
     $(Join-Path -Path $functions -ChildPath GetCallerPreference.ps1)
     $(Join-Path -Path $functions -ChildPath GetCommonParameter.ps1)
     $(Join-Path -Path $functions -ChildPath GetExchangePSSession.ps1)
