@@ -27,31 +27,31 @@ Function Export-ExchangePermission
         ,
         [parameter(ParameterSetName = 'Scoped')]
         [Parameter(ParameterSetName = 'AllMailboxes')]
-        [bool]$IncludeSendOnBehalf = $true
+        [switch]$IncludeSendOnBehalf
         ,
         [parameter(ParameterSetName = 'Scoped')]
         [Parameter(ParameterSetName = 'AllMailboxes')]
-        [bool]$IncludeFullAccess = $true
+        [switch]$IncludeFullAccess
         ,
         [parameter(ParameterSetName = 'Scoped')]
         [Parameter(ParameterSetName = 'AllMailboxes')]
-        [bool]$IncludeSendAs = $true
+        [switch]$IncludeSendAs
         ,
         [parameter(ParameterSetName = 'Scoped')]
         [Parameter(ParameterSetName = 'AllMailboxes')]
-        [bool]$IncludeCalendar = $true
+        [switch]$IncludeCalendar
         ,
         [parameter(ParameterSetName = 'Scoped')]
         [Parameter(ParameterSetName = 'AllMailboxes')]
-        [bool]$IncludeAllFolder = $true
+        [switch]$IncludeAllFolder
         ,
         [bool]$expandGroups = $true
         ,
-        [bool]$dropExpandedParentGroupPermissions = $false
+        [switch]$dropExpandedParentGroupPermissions
         ,
         [bool]$dropInheritedPermissions = $true
         ,
-        [bool]$IncludeSIDHistory = $false
+        [switch]$IncludeSIDHistory
         ,
         [parameter()]
         [ValidateScript( { $_.gettype().name -eq 'ADDriveInfo' })]#doing this as a validatescript instead of a type declaration so that this will run on a system that lacks the ActiveDirectory module if the user doesn't need this parameter.
