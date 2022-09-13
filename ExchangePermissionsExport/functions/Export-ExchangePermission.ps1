@@ -381,7 +381,7 @@ Function Export-ExchangePermission
                         }
                         If (($IncludeAllFolder) -and (!($GlobalSendAs)))
                         {
-                            Write-Verbose -Message "Getting Calendar Permissions for Target $ID"
+                            Write-Verbose -Message "Getting Folder Permissions for Target $ID"
                             GetAllFolderPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $Script:PSSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
                         }
                         #Get Send As Users

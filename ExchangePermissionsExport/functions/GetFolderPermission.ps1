@@ -37,7 +37,7 @@ Function GetFolderPermission
         }
         catch
         {
-            Write-Verbose -Message "Get-MailboxFolderPermission threw an error with Identity $Identity."
+            Write-Verbose -Message "Get-MailboxFolderPermission threw an error with Identity $TargetFolderIdentity."
         }
     )
     #filter anon and default permissions
