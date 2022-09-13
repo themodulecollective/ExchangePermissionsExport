@@ -45,13 +45,13 @@ Function Export-ExchangePermission
         [Parameter(ParameterSetName = 'AllMailboxes')]
         [switch]$IncludeAllFolder
         ,
+        [switch]$IncludeSIDHistory
+        ,
         [bool]$expandGroups = $true
         ,
         [switch]$dropExpandedParentGroupPermissions
         ,
         [bool]$dropInheritedPermissions = $true
-        ,
-        [switch]$IncludeSIDHistory
         ,
         [parameter()]
         [ValidateScript( { $_.gettype().name -eq 'ADDriveInfo' })]#doing this as a validatescript instead of a type declaration so that this will run on a system that lacks the ActiveDirectory module if the user doesn't need this parameter.
@@ -98,8 +98,12 @@ Function Export-ExchangePermission
             }
         }
         $BeginTimeStamp = Get-Date -Format yyyyMMdd-HHmmss
+        $random = [System.IO.Path]::GetRandomFileName().split('.')[0]
         $ExchangeOrganization = Invoke-Command -Session $Script:PSSession -ScriptBlock { Get-OrganizationConfig | Select-Object -ExpandProperty Identity | Select-Object -ExpandProperty Name }
         $ExchangeOrganizationIsInExchangeOnline = $ExchangeOrganization -like '*.onmicrosoft.com'
+        $script:LogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExchangePermissionsExportOperations.log')
+        $script:ErrorLogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExchangePermissionsExportOperations-ERRORS.log')
+
         switch ($PSCmdlet.ParameterSetName -eq 'Resume')
         {
             $true
@@ -118,8 +122,6 @@ Function Export-ExchangePermission
                 {
                     Set-Variable -Name $v.name -Value $v.value -Force
                 }
-                $script:LogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations.log')
-                $script:ErrorLogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations-ERRORS.log')
                 WriteLog -Message "Calling Invocation = $($MyInvocation.Line)" -EntryType Notification
                 WriteLog -Message "Exchange Session is Running in Exchange Organzation $ExchangeOrganization" -EntryType Notification
                 $ResumeIndex = getarrayIndexForIdentity -array $InScopeRecipients -property 'guid' -Value $ResumeIdentity -ErrorAction Stop
@@ -133,11 +135,9 @@ Function Export-ExchangePermission
             }
             $false
             {
-                $script:LogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations.log')
-                $script:ErrorLogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExchangePermissionsExportOperations-ERRORS.log')
                 WriteLog -Message "Calling Invocation = $($MyInvocation.Line)" -EntryType Notification
                 WriteLog -Message "Provided Exchange Session is Running in Exchange Organzation $ExchangeOrganization" -EntryType Notification
-                $ExportedExchangePermissionsFile = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + 'ExportedExchangePermissions.csv')
+                $ExportedExchangePermissionsFile = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExportedExchangePermissions.csv')
                 $ResumeIndex = 0
                 [uint32]$Script:PermissionIdentity = 0
                 if ($IncludeSIDHistory -eq $true)
