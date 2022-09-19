@@ -6,9 +6,10 @@
 - [ ] add excluded prefixes with split on \?
 - [ ] add scoping by OU?
 - [ ] implement explicit garbage collection.
-- [ ] Add Forwarding detection/export
-- [x] Add Calendar Permissions Export
 - [ ] Add checking for In Scope Recipients when using parameter set scoped to only run get-sendonbehalf and get-mailboxpermissions when the recipient is a mailbox.
+- [ ] Add Forwarding detection/export?
+- [x] Add Calendar Permissions Export
+- [x] Add Folder Permissions Export
 - [x] Add Resume capability for broken session scenario-- done
 - [x] use get-group and/or get-user when get-recipient fails to get an object-- done
 - [x] Fix Fullaccess to leverage SID History and Inheritance options-- done

@@ -1,24 +1,11 @@
-# InstallManager Release Notes
+# ExchangePermissionsExport Release Notes
 
-## InstallManager
+## ExchangePermissionsExport
 
-a PowerShell Module for managing the lifecycle (install/update/remove) of Winget Packages, Chocolatey Packages, Powershell Modules, and Git Repos on a computer or set of computers.  InstallManager is meant to be for an individual user, developer, admin, or consultant that is maintaining a set of administrative, development, or productivity tools on their workstation(s).
-## InstallManager 0.0.0.10
-Add Beta WinGet Package Management.  Note, this relies on interaction with the text based output of WinGet.  WinGet will possibly be delivering integration with PowerShell PackageManagement and the functionality may change when that happens.
-## InstallManager 0.0.0.9
+PowerShell Module for Improved Permissions Export Functions to Support Exchange Migrations including upgrades, on-premises to on-premises, on-premises to online, online to online, etc. Exported permissions can be used for permission replay for migrations and/or for analysis of user relationships for migration batching.
 
-### Minor performance improvements
+This module improves on soyalejolopez/Find-MailboxDelegates to improve output so that it is coherent and consistent across permission types and Exchange Organizations whether they are in Exchange Online or Exchange On Premises.  It also fixes a number of performance and logical errors compared to Find-MailboxDelegates and provides more modular code for easier troubleshooting and improvement.
 
-## InstallManager 0.0.0.8
-
-### Minor Bug Fix
-
-Change to resolve a bug in Update-IMInstall related to KeepVersions/RequiredVersions processing.
-
-## InstallManager 0.0.0.7
-
-## InstallManager 0.0.0.6
+This module does not provide permissions analysis for migration batching.  Instead, another module will do that entitled ExchangePermissionsAnalysis.
 
 ### What's New
-
-This is a minor release to better indicate compatability with Windows PowerShell 5.1 and PowerShell core on Windows. The only change is to add this file and to update the module metadata (psd1 file).  The current version is NOT compatible with Powershell on linux due to use of Windows Registry (via PSFramework) for IMDefinitions.  In a future version, the plan is to make this configurable within the module settings and default to a different method for storing of settings and IMDefinitions on linux, but for now, this module is for Windows only.
