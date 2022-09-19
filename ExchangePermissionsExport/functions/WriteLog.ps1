@@ -1,6 +1,6 @@
 Function WriteLog
 {
-    
+
     [cmdletbinding()]
     Param
     (
@@ -87,4 +87,3 @@ Function WriteLog
     Write-Verbose -Message $Message
 
 }
-

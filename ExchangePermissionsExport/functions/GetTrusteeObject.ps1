@@ -1,6 +1,6 @@
 Function GetTrusteeObject
 {
-    
+
     [CmdletBinding()]
     param
     (
@@ -107,4 +107,3 @@ Function GetTrusteeObject
     $trusteeObject
 
 }
-

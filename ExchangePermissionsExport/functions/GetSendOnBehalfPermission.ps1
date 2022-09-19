@@ -1,6 +1,6 @@
 Function GetSendOnBehalfPermission
 {
-    
+
     #Get Delegate Users (NOTE: actual permissions are stored in the mailbox . . . so these are not true delegates just a likely correlation to delegates)
     [cmdletbinding()]
     param
@@ -86,4 +86,3 @@ Function GetSendOnBehalfPermission
     }
 
 }
-

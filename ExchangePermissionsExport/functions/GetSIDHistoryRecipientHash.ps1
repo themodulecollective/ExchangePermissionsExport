@@ -1,6 +1,6 @@
 Function GetSIDHistoryRecipientHash
 {
-    
+    [outputtype([hashtable])]
     [cmdletbinding()]
     param
     (
@@ -11,7 +11,7 @@ Function GetSIDHistoryRecipientHash
     )#End param
 
     Push-Location
-    WriteLog -Message "Operation: Retrieve Mapping for all User Recipients with SIDHistory."
+    WriteLog -Message 'Operation: Retrieve Mapping for all User Recipients with SIDHistory.'
 
     #Region GetSIDHistoryUsers
     Set-Location $($ActiveDirectoryDrive.Name + ':\') -ErrorAction Stop
@@ -19,7 +19,7 @@ Function GetSIDHistoryRecipientHash
     {
         $message = "Get AD Users with SIDHistory from AD Drive $($activeDirectoryDrive.Name)"
         WriteLog -Message $message -EntryType Attempting
-        $sidHistoryUsers = @(Get-Aduser -ldapfilter "(&(legacyExchangeDN=*)(sidhistory=*))" -Properties sidhistory, legacyExchangeDN -ErrorAction Stop)
+        $sidHistoryUsers = @(Get-Aduser -ldapfilter '(&(legacyExchangeDN=*)(sidhistory=*))' -Properties sidhistory, legacyExchangeDN -ErrorAction Stop)
         WriteLog -Message $message -EntryType Succeeded
     }
     Catch
@@ -58,4 +58,3 @@ Function GetSIDHistoryRecipientHash
     $SIDHistoryRecipientHash
 
 }
-

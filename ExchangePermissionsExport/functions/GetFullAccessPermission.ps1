@@ -1,6 +1,6 @@
 Function GetFullAccessPermission
 {
-    
+
     [cmdletbinding()]
     param
     (
@@ -88,4 +88,3 @@ Function GetFullAccessPermission
     }#end foreach fa
 
 }
-

@@ -1,6 +1,6 @@
 Function GetAllParametersWithAValue
 {
-    
+    [OutputType([System.Management.Automation.PSObject[]])]
     [cmdletbinding()]
     param
     (
@@ -29,6 +29,4 @@ Function GetAllParametersWithAValue
         }
     )
     $AllParametersWithAValue
-
 }
-

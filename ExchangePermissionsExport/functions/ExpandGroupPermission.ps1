@@ -1,6 +1,5 @@
 Function ExpandGroupPermission
 {
-    
     [CmdletBinding()]
     param
     (
@@ -109,4 +108,3 @@ Function ExpandGroupPermission
     }
 
 }
-

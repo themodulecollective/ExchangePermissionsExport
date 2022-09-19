@@ -1,6 +1,6 @@
 Function GetGetExchangePSSessionParams
 {
-    
+
     $GetExchangePSSessionParams = @{
         ErrorAction = 'Stop'
         Credential  = $script:Credential
@@ -24,4 +24,3 @@ Function GetGetExchangePSSessionParams
     $GetExchangePSSessionParams
 
 }
-

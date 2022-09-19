@@ -1,6 +1,6 @@
 Function GetSendASPermissionsViaExchange
 {
-    
+
     [cmdletbinding()]
     param
     (
@@ -116,4 +116,3 @@ Function GetSendASPermissionsViaExchange
     }#end foreach
 
 }
-

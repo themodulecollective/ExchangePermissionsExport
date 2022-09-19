@@ -1,6 +1,6 @@
 Function RemoveExchangePSSession
 {
-    
+
     [CmdletBinding()]
     param
     (
@@ -9,4 +9,3 @@ Function RemoveExchangePSSession
     Remove-PSSession -Session $PsSession -ErrorAction SilentlyContinue
 
 }
-

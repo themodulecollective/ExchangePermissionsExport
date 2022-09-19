@@ -1,6 +1,6 @@
 Function ExportExchangePermissionExportResumeData
 {
-    
+
     [CmdletBinding()]
     param
     (
@@ -33,9 +33,8 @@ Function ExportExchangePermissionExportResumeData
         ExportedExchangePermissionsFile     = $ExportedExchangePermissionsFile
         TimeStamp                           = $TimeStamp
     }
-    $ExportFilePath = Join-Path -Path $outputFolderPath -ChildPath $($TimeStamp + "ExchangePermissionExportResumeData.xml")
+    $ExportFilePath = Join-Path -Path $outputFolderPath -ChildPath $($TimeStamp + 'ExchangePermissionExportResumeData.xml')
     Export-Clixml -Depth 2 -Path $ExportFilePath -InputObject $ExchangePermissionExportResumeData -Encoding UTF8
     $ExportFilePath
 
 }
-

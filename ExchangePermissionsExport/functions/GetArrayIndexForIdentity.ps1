@@ -1,6 +1,6 @@
 Function GetArrayIndexForIdentity
 {
-    
+    [OutputType([Int])]
     [cmdletbinding()]
     param(
         [parameter(mandatory = $true)]
@@ -16,4 +16,3 @@ Function GetArrayIndexForIdentity
     [array]::indexof(($array.$property).guid, $value)
 
 }
-

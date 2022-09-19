@@ -1,6 +1,6 @@
 Function GetGroupMemberExpandedViaExchange
 {
-    
+
     [CmdletBinding()]
     param
     (
@@ -56,4 +56,3 @@ Function GetGroupMemberExpandedViaExchange
     $AllResolvedMembers
 
 }
-

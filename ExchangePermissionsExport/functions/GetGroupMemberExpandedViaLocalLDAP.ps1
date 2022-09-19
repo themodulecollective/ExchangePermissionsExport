@@ -1,6 +1,6 @@
 Function GetGroupMemberExpandedViaLocalLDAP
 {
-    
+
     [CmdletBinding()]
     param
     (
@@ -23,10 +23,10 @@ Function GetGroupMemberExpandedViaLocalLDAP
     if (-not (Test-Path -Path variable:script:dsLookFor))
     {
         #enumerate groups: http://stackoverflow.com/questions/8055338/listing-users-in-ad-group-recursively-with-powershell-script-without-cmdlets/8055996#8055996
-        $script:dse = [ADSI]"LDAP://Rootdse"
+        $script:dse = [ADSI]'LDAP://Rootdse'
         $script:dn = [ADSI]"LDAP://$($script:dse.DefaultNamingContext)"
         $script:dsLookFor = New-Object System.DirectoryServices.DirectorySearcher($script:dn)
-        $script:dsLookFor.SearchScope = "subtree"
+        $script:dsLookFor.SearchScope = 'subtree'
     }
     $script:dsLookFor.Filter = "(&(memberof:1.2.840.113556.1.4.1941:=$($Identity))(objectCategory=user))"
     Try
@@ -53,4 +53,3 @@ Function GetGroupMemberExpandedViaLocalLDAP
     }
 
 }
-

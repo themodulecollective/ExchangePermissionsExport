@@ -1,23 +1,41 @@
 Function Connect-ExchangeOrganization
 {
-    
+    <#
+    .SYNOPSIS
+        Establishes a resilient connection to an Exchange Organization.  Used to Re-connect if needed during long running operations.
+    .DESCRIPTION
+        Establishes a resilient connection to an Exchange Organization.  Used to Re-connect if needed during long running operations. Works with Exchange Online and Exchange On Premises. Required for the commands in this module.
+    .NOTES
+
+    .LINK
+
+    .EXAMPLE
+        Connect-ExchangeOrganization -ExchangeOnPremisesServer 'Exchange01' -Credential $ExchangeCred
+        Establishes a powershell session to the Microsoft.Exchange endpoint on the named Exchange server.  Stores the server information and credential in memory for re-connect during long running permission export operations if a disconnection is detected.
+    #>
+
     [CmdletBinding(DefaultParameterSetName = 'ExchangeOnline')]
     param
     (
+        #Name of Exchange On Premises Server to Connect to.  Use FQDN if necessary for name resolution.
         [parameter(ParameterSetName = 'ExchangeOnPremises', Mandatory)]
         [string]$ExchangeOnPremisesServer
         ,
+        #Specify the type of Exchange Organization to be connected to.  Function uses this internally to determine the connection method to use.
         [parameter(Mandatory)]
         [validateset('ExchangeOnPremises', 'ExchangeOnline')]
         [string]$ExchangeOrgType
         ,
+        #Used to specify the connection method to use with Exchange Online. Will be deprecated with the advent of the OAuth ExchangeOnlineManagement module.
         [parameter(ParameterSetName = 'ExchangeOnline', Mandatory)]
         [validateset('RemotePowerShellBasicAuth', 'ExchangeOnlineManagement')]
         [string]$ConnectionMethod
         ,
+        #Credential to use with the Exchange Session.  Required for reconnection scenarios with Exchange On Premises
         [parameter()]
         [pscredential]$Credential
         ,
+        #use if your Exchange On Premises environment requires particular PSSessionOptions.
         [System.Management.Automation.Remoting.PSSessionOption]$PSSessionOption
     )
 
@@ -77,4 +95,3 @@ Function Connect-ExchangeOrganization
     $script:ConnectExchangeOrganizationCompleted = $true
 
 }
-

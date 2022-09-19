@@ -1,6 +1,6 @@
 Function NewPermissionExportObject
 {
-    
+
     [cmdletbinding()]
     param(
         [parameter(Mandatory)]
@@ -79,4 +79,3 @@ Function NewPermissionExportObject
     $PermissionExportObject
 
 }
-

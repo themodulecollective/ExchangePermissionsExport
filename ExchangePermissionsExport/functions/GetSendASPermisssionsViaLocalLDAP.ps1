@@ -1,6 +1,6 @@
 Function GetSendASPermisssionsViaLocalLDAP
 {
-    
+
     [cmdletbinding()]
     param
     (
@@ -29,7 +29,7 @@ Function GetSendASPermisssionsViaLocalLDAP
     $SendASRight = [GUID]'ab721a54-1e2f-11d0-9819-00aa0040529b'
     $userDN = [ADSI]("LDAP://$($TargetMailbox.DistinguishedName)")
     $saRawPermissions = @(
-        $userDN.psbase.ObjectSecurity.Access | Where-Object -FilterScript { (($_.ObjectType -eq $SendASRight) -or ($_.ActiveDirectoryRights -eq 'GenericAll')) -and ($_.AccessControlType -eq 'Allow') } | Where-Object -FilterScript { $_.IdentityReference -notlike "NT AUTHORITY\SELF" } | Select-Object identityreference, IsInherited
+        $userDN.psbase.ObjectSecurity.Access | Where-Object -FilterScript { (($_.ObjectType -eq $SendASRight) -or ($_.ActiveDirectoryRights -eq 'GenericAll')) -and ($_.AccessControlType -eq 'Allow') } | Where-Object -FilterScript { $_.IdentityReference -notlike 'NT AUTHORITY\SELF' } | Select-Object identityreference, IsInherited
         # Where-Object -FilterScript {($_.identityreference.ToString().split('\')[0]) -notin $ExcludedTrusteeDomains}
         # Where-Object -FilterScript {$_.identityreference -notin $ExcludedTrustees}|
     )
@@ -78,4 +78,3 @@ Function GetSendASPermisssionsViaLocalLDAP
     }#end foreach
 
 }
-

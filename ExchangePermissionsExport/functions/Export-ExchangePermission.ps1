@@ -1,70 +1,113 @@
 Function Export-ExchangePermission
 {
+    <#
+.SYNOPSIS
+    Exports Exchange Permissions (Full, SendAs, SendOnBehalf, Calendar, Folder) to a CSV file using a standard format for all permission types.
+.DESCRIPTION
+    Exports Exchange Permissions (Full, SendAs, SendOnBehalf, Calendar, Folder) to a CSV file using a standard format for all permission types. Expands group permissions. Identified permisisons based on SIDHistory. Identifies inherited Permissions. Resolves permisison holders (Trustees) to unique identifiers (such as MailboxGUID).
+.NOTES
+
+.LINK
+
+.EXAMPLE
+    Get Full Access, SendAS, and SendOnBehalf Permissions for all mailboxes, expand group membership for group assinged permissions, and include permissions based on SIDHistory.  Use an AD connection for better performance for SendAS permissions and group expansion.
+    Import-Module ActiveDirectory
+    $AD = Get-psdrive -Provider ActiveDirectory
+    Export-ExchangePermission -Outputfolderpath c:\PermOutput -AllMailboxes -IncludeSendOnBehalf -IncludeFullAccess -IncludeSendAs -ExpandGroups -ActiveDirectoryDrive $AD -IncludeSIDHistory
+
+    Get Permissions for a specified set of mailboxes
+    Export-ExchangePermission -outputfolderpath c:\PermOutput -Identity ben@contoso.com,mike@contoso.com -IncludeSendOnBehalf -IncludeSendAS -IncludeFullAccess
+
+    Get mailbox folder level permission for all mailboxes.  Note: This may be a very long running operation. See WIPFunctions\FanOutFolderPermissions.ps1
+    Export-ExchangePermission -outputfolderpath c:\PermOutput -AllMailboxes -IncludeAllFolder
+#>
 
     [cmdletbinding(DefaultParameterSetName = 'AllMailboxes')]
     param
     (
+
+        #specifies the folder where output files (csv and logs) will be placed.  User must be able to write to this location.
         [Parameter(ParameterSetName = 'AllMailboxes', Mandatory)]
         [parameter(ParameterSetName = 'Scoped', Mandatory)]
         [parameter(ParameterSetName = 'GlobalSendAs', Mandatory)]
         [ValidateScript( { TestIsWriteableDirectory -Path $_ })]
         $OutputFolderPath
         ,
-        [parameter(ParameterSetName = 'GlobalSendAs', Mandatory)]
-        [switch]$GlobalSendAs
-        ,
+        #specifies a permissions export based on the named identities in the connected organization
         [parameter(ParameterSetName = 'Scoped', Mandatory)]
         [string[]]$Identity
         ,
+        #specifies a permissions export for all mailboxes in the connected organization
         [Parameter(ParameterSetName = 'AllMailboxes', Mandatory)]
         [switch]$AllMailboxes
         ,
+        #specify permission target mailboxes to exclude (when using -AllMailboxes)
         [parameter()]#These will be resolved to target recipient objects
         [string[]]$ExcludedIdentities
         ,
+        #specify permission holders to exclude from Permissions output
         [parameter()]#These will be resolved to trustee objects
         [string[]]$ExcludedTrusteeIdentities
         ,
+        #Include SendOnBehalf permissions in the output
         [parameter(ParameterSetName = 'Scoped')]
         [Parameter(ParameterSetName = 'AllMailboxes')]
         [switch]$IncludeSendOnBehalf
         ,
+        #Include FullAccess permissions in the output
         [parameter(ParameterSetName = 'Scoped')]
         [Parameter(ParameterSetName = 'AllMailboxes')]
         [switch]$IncludeFullAccess
         ,
+        #Include SendAs permissions in the output (retrieved from AD rather than Exchange if -ActiveDirectoryDrive is provided).
         [parameter(ParameterSetName = 'Scoped')]
         [Parameter(ParameterSetName = 'AllMailboxes')]
         [switch]$IncludeSendAs
         ,
+        #Include Calendar permissions for each included mailbox's first calendar folder
         [parameter(ParameterSetName = 'Scoped')]
         [Parameter(ParameterSetName = 'AllMailboxes')]
         [switch]$IncludeCalendar
         ,
+        #Include permissions for all folders in the included mailboxes.  Includes calendar
         [parameter(ParameterSetName = 'Scoped')]
         [Parameter(ParameterSetName = 'AllMailboxes')]
         [switch]$IncludeAllFolder
         ,
+        #Includes AD Based SendAS permission (an inherited form of SendAS). Requires -ActiveDirectoryDrive
+        [parameter(ParameterSetName = 'GlobalSendAs', Mandatory)]
+        [switch]$GlobalSendAs
+        ,
+        #Include permissions that result from SIDHistory in AD (SendAS)
         [switch]$IncludeSIDHistory
         ,
+        #Expands permissions assigned to a group out to the group members in the output.
         [bool]$expandGroups = $true
         ,
+        #Drops the original group permission when group permissions are expanded (rarely used)
         [switch]$dropExpandedParentGroupPermissions
         ,
+        #Drops permissions inherited in AD.  Usually effective at removing administrative only permissions that are not relevant to most exchange migrations
         [bool]$dropInheritedPermissions = $true
         ,
+        #Used for AD connectivity for better performance of SendAs permission retrieval and also for group expansion and SIDHistory
         [parameter()]
         [ValidateScript( { $_.gettype().name -eq 'ADDriveInfo' })]#doing this as a validatescript instead of a type declaration so that this will run on a system that lacks the ActiveDirectory module if the user doesn't need this parameter.
         $ActiveDirectoryDrive
         ,
+        #Forces use of Exchange commands rather than AD connectionfor Group expansion and SendAs permission retrieval
         [switch]$UseExchangeCommandsInsteadOfADOrLDAP
         ,
+        #Excludes a record output for mailboxes where no permissions are found
         [switch]$ExcludeNonePermissionOutput
         ,
+        #Enables resume of a long running permissions operation.  Use only if required.
         [switch]$EnableResume
         ,
+        #Stores all permission output in a global scope variable for review at the command line after export has completed.
         [switch]$KeepExportedPermissionsInGlobalVariable
         ,
+        #Used to resume a long running export operation that has been interrupted.
         [Parameter(ParameterSetName = 'Resume', Mandatory)]
         [ValidateScript( { Test-Path -Path $_ })]
         [string]$ResumeFile

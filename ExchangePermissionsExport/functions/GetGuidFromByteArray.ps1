@@ -1,6 +1,6 @@
 Function GetGuidFromByteArray
 {
-    
+
     [CmdletBinding()]
     param
     (
@@ -9,4 +9,3 @@ Function GetGuidFromByteArray
     New-Object -TypeName guid -ArgumentList (, $GuidByteArray)
 
 }
-

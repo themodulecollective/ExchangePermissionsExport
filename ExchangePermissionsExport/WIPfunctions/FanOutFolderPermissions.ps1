@@ -11,7 +11,7 @@ param(
     ,
     $OutputFolderPath
     ,
-    $Credential
+    [pscredential]$Credential
 )
 
 Import-Module ExchangePermissionsExport

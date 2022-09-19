@@ -1,6 +1,6 @@
 Function GetCalendarPermission
 {
-    
+
     [cmdletbinding()]
     param
     (
@@ -38,14 +38,14 @@ Function GetCalendarPermission
             {
                 $CalendarFolderName = Invoke-Command -ErrorAction Stop -Session $ExchangeSession -ScriptBlock {
                     Get-MailboxFolderStatistics -Identity $using:Identity
-                } | Where-Object -FilterScript { $_.FolderType -eq "Calendar" } | Select-Object -First 1 | Select-Object -ExpandProperty Name
+                } | Where-Object -FilterScript { $_.FolderType -eq 'Calendar' } | Select-Object -First 1 | Select-Object -ExpandProperty Name
                 if ([string]::IsNullOrWhiteSpace($CalendarFolderName))
                 {
                     Write-Verbose -Message "No Calendar Folder found for Identity $Identity"
                 }
                 else
                 {
-                    $TargetFolderPath = "\" + $CalendarFolderName
+                    $TargetFolderPath = '\' + $CalendarFolderName
                     #try again with the localized folder name
                     $splat.Identity = $($Identity + ':' + $TargetFolderPath)
                     Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-MailboxFolderPermission @using:splat } -ErrorAction Stop
@@ -58,7 +58,7 @@ Function GetCalendarPermission
         }
     )
     #filter anon and default permissions
-    $RawCalendarPermissions = @($RawCalendarPermissions | Where-Object -FilterScript { $_.User -notlike "Anonymous" -and $_.User -notlike "Default" })
+    $RawCalendarPermissions = @($RawCalendarPermissions | Where-Object -FilterScript { $_.User -notlike 'Anonymous' -and $_.User -notlike 'Default' })
     #process the permissions for export
     foreach ($rcp in $RawCalendarPermissions)
     {
@@ -126,4 +126,3 @@ Function GetCalendarPermission
     }#end foreach rcp
 
 }
-

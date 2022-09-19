@@ -1,6 +1,6 @@
 Function GetExchangePSSession
 {
-    
+
     [CmdletBinding(DefaultParameterSetName = 'ExchangeOnline')]
     param
     (
@@ -72,4 +72,3 @@ Function GetExchangePSSession
     $ExchangeSession
 
 }
-

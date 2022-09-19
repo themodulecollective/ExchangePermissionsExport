@@ -1,6 +1,6 @@
 Function ExportResumeID
 {
-    
+
     [CmdletBinding()]
     param
     (
@@ -12,7 +12,7 @@ Function ExportResumeID
         ,
         $TimeStamp
     )
-    $ExportFilePath = Join-Path -Path $outputFolderPath -ChildPath $($TimeStamp + "ExchangePermissionExportResumeID.xml")
+    $ExportFilePath = Join-Path -Path $outputFolderPath -ChildPath $($TimeStamp + 'ExchangePermissionExportResumeID.xml')
     $Identities = @{
         NextPermissionIdentity = $nextPermissionID
         ResumeID               = $ID
@@ -21,4 +21,3 @@ Function ExportResumeID
     $ExportFilePath
 
 }
-

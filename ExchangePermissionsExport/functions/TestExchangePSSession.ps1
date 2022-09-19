@@ -1,6 +1,6 @@
 Function TestExchangePSSession
 {
-    
+    [outputtype([bool])]
     [CmdletBinding()]
     param
     (
@@ -27,4 +27,3 @@ Function TestExchangePSSession
     }
 
 }
-

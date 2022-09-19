@@ -66,7 +66,10 @@
     #NestedModules = @('PSMenu.psm1')
 
     # Functions to export from this module
-    FunctionsToExport = '*'
+    FunctionsToExport = @(
+        'Connect-ExchangeOrganization'
+        'Export-ExchangePermission'
+    )
     #FunctionsToExport = '*-*'
 
     # Cmdlets to export from this module
