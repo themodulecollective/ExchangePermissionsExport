@@ -1,5 +1,6 @@
 # To Do Items
 
+- [ ] Avoid gathering self permissions with -AllFolderPermissions
 - [ ] Improve the resume functionality and code readability
 - [ ] Extensive testing against Exchange On Premises for SIDHistory and other on premises specific features.
 - [ ] Add an attribute to the permission object which indicates if the target/permholder were in the mailboxes scope
