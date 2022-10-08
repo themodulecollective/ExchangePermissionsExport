@@ -20,14 +20,12 @@ Function GetSendASPermissionsViaExchange
         ,
         $ExchangeOrganization
         ,
-        $ExchangeOrganizationIsInExchangeOnline
-        ,
         $HRPropertySet #Property set for recipient object inclusion in object lookup hashtables
     )
     GetCallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
-    switch ($ExchangeOrganizationIsInExchangeOnline)
+    switch ($script:OrganizationType)
     {
-        $true
+        'ExchangeOnline'
         {
             $command = 'Get-RecipientPermission'
             $splat = @{
@@ -47,7 +45,7 @@ Function GetSendASPermissionsViaExchange
                 WriteLog -Message $myerror.tostring() -ErrorLog -Verbose -EntryType Failed
             }
         }
-        $false
+        'ExchangeOnPremises'
         {
             $command = 'Get-ADPermission'
             $splat = @{
@@ -74,13 +72,13 @@ Function GetSendASPermissionsViaExchange
     {
         $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript { $_.IsInherited -eq $false })
     }
-    $IdentityProperty = switch ($ExchangeOrganizationIsInExchangeOnline) { $true { 'Trustee' } $false { 'User' } }
+    $IdentityProperty = switch ($script:OrganizationType) { 'ExchangeOnline' { 'Trustee' } 'ExchangeOnPremises' { 'User' } }
     #Drop Self Permissions
     $saRawPermissions = @($saRawPermissions | Where-Object -FilterScript { $_.$IdentityProperty -ne 'NT AUTHORITY\SELF' })
     #Lookup Trustee Recipients and export permission if found
     foreach ($sa in $saRawPermissions)
     {
-        $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $sa.$IdentityProperty -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
+        $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $sa.$IdentityProperty -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -UnfoundIdentitiesHash $UnFoundIdentitiesHash
         switch ($null -eq $trusteeRecipient)
         {
             $true

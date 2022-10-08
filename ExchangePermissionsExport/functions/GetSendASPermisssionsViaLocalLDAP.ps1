@@ -20,8 +20,6 @@ Function GetSendASPermisssionsViaLocalLDAP
         ,
         $ExchangeOrganization
         ,
-        [bool]$ExchangeOrganizationIsInExchangeOnline = $false
-        ,
         $HRPropertySet #Property set for recipient object inclusion in object lookup hashtables
     )
     GetCallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
@@ -42,7 +40,7 @@ Function GetSendASPermisssionsViaLocalLDAP
     #Lookup Trustee Recipients and export permission if found
     foreach ($sa in $saRawPermissions)
     {
-        $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $sa.IdentityReference -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
+        $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $sa.IdentityReference -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -UnfoundIdentitiesHash $UnFoundIdentitiesHash
         switch ($null -eq $trusteeRecipient)
         {
             $true

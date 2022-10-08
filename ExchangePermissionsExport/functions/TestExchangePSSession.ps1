@@ -12,7 +12,7 @@ Function TestExchangePSSession
         {
             Try
             {
-                $TestCommandResult = Invoke-Command -Session $PSSession -ScriptBlock { Get-OrganizationConfig -ErrorAction Stop | Select-Object -ExpandProperty Identity | Select-Object -ExpandProperty Name } -ErrorAction Stop
+                $TestCommandResult = Invoke-Command -Session $PSSession -ScriptBlock { Get-OrganizationConfig -ErrorAction Stop | Select-Object -ExpandProperty Identity } -ErrorAction Stop
                 $(-not [string]::IsNullOrWhiteSpace($TestCommandResult))
             }
             Catch

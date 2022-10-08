@@ -17,8 +17,6 @@ Function GetGroupMemberExpandedViaLocalLDAP
         $SIDHistoryRecipientHash
         ,
         [hashtable]$UnfoundIdentitiesHash
-        ,
-        $ExchangeOrganizationIsInExchangeOnline
     )
     if (-not (Test-Path -Path variable:script:dsLookFor))
     {
@@ -47,7 +45,7 @@ Function GetGroupMemberExpandedViaLocalLDAP
     foreach ($u in $TrusteeUserObjects)
     {
         $TrusteeIdentity = $(GetGuidFromByteArray -GuidByteArray $($u.Properties.objectguid)).guid
-        $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $TrusteeIdentity -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
+        $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $TrusteeIdentity -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -UnfoundIdentitiesHash $UnFoundIdentitiesHash
         if ($null -ne $trusteeRecipient)
         { $trusteeRecipient }
     }

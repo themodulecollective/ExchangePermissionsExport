@@ -1,6 +1,5 @@
 Function GetGetExchangePSSessionParams
 {
-
     $GetExchangePSSessionParams = @{
         ErrorAction = 'Stop'
         Credential  = $script:Credential
@@ -14,7 +13,6 @@ Function GetGetExchangePSSessionParams
         'ExchangeOnline'
         {
             $GetExchangePSSessionParams.ExchangeOnline = $true
-            $GetExchangePSSessionParams.ConnectionMethod = $script:ExchangeOnlineConnectionMethod
         }
         'ExchangeOnPremises'
         {

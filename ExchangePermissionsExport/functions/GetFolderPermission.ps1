@@ -24,8 +24,6 @@ Function GetFolderPermission
         ,
         $ExchangeOrganization
         ,
-        $ExchangeOrganizationIsInExchangeOnline
-        ,
         $HRPropertySet #Property set for recipient object inclusion in object lookup hashtables
     )
     GetCallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
@@ -45,9 +43,9 @@ Function GetFolderPermission
     #process the permissions for export
     foreach ($rfp in $RawFolderPermissions)
     {
-        switch ($ExchangeOrganizationIsInExchangeOnline)
+        switch ($script:OrganizationType)
         {
-            $true
+            'ExchangeOnline'
             {
                 switch ($rfp.user.usertype.value)
                 {
@@ -61,12 +59,12 @@ Function GetFolderPermission
                     }
                 }
             }
-            $false
+            'ExchangeOnPremises'
             {
                 $user = $rfp.user
             }
         }
-        $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $user -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -UnfoundIdentitiesHash $UnFoundIdentitiesHash
+        $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $user -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -UnfoundIdentitiesHash $UnFoundIdentitiesHash
         $FolderAccessRights = $rfp.AccessRights -join '|'
         switch ($null -eq $trusteeRecipient)
         {

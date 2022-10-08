@@ -18,8 +18,6 @@ Function GetAllFolderPermission
         ,
         $ExchangeOrganization
         ,
-        $ExchangeOrganizationIsInExchangeOnline
-        ,
         $HRPropertySet #Property set for recipient object inclusion in object lookup hashtables
     )
     GetCallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
@@ -39,18 +37,17 @@ Function GetAllFolderPermission
     foreach ($f in $AllFolders)
     {
         $gfpParams = @{
-            TargetMailbox                          = $TargetMailbox
-            TargetFolderIdentity                   = $Identity + ':' + $($f.FolderID)
-            TargetFolderPath                       = $f.FolderPath
-            TargetFolderType                       = $f.FolderType
-            ExchangeSession                        = $ExchangeSession
-            ObjectGUIDHash                         = $ObjectGUIDHash
-            excludedTrusteeGUIDHash                = $excludedTrusteeGUIDHash
-            DomainPrincipalHash                    = $DomainPrincipalHash
-            UnFoundIdentitiesHash                  = $UnfoundIdentitiesHash
-            ExchangeOrganization                   = $ExchangeOrganization
-            ExchangeOrganizationIsInExchangeOnline = $ExchangeOrganizationIsInExchangeOnline
-            HRPropertySet                          = $HRPropertySet
+            TargetMailbox           = $TargetMailbox
+            TargetFolderIdentity    = $Identity + ':' + $($f.FolderID)
+            TargetFolderPath        = $f.FolderPath
+            TargetFolderType        = $f.FolderType
+            ExchangeSession         = $ExchangeSession
+            ObjectGUIDHash          = $ObjectGUIDHash
+            excludedTrusteeGUIDHash = $excludedTrusteeGUIDHash
+            DomainPrincipalHash     = $DomainPrincipalHash
+            UnFoundIdentitiesHash   = $UnfoundIdentitiesHash
+            ExchangeOrganization    = $ExchangeOrganization
+            HRPropertySet           = $HRPropertySet
         }
         GetFolderPermission @gfpParams
     }

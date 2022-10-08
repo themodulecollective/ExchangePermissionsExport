@@ -142,8 +142,7 @@ Function Export-ExchangePermission
         }
         $BeginTimeStamp = Get-Date -Format yyyyMMdd-HHmmss
         $random = [System.IO.Path]::GetRandomFileName().split('.')[0]
-        $ExchangeOrganization = Invoke-Command -Session $Script:PSSession -ScriptBlock { Get-OrganizationConfig | Select-Object -ExpandProperty Identity | Select-Object -ExpandProperty Name }
-        $ExchangeOrganizationIsInExchangeOnline = $ExchangeOrganization -like '*.onmicrosoft.com'
+        $ExchangeOrganization = Invoke-Command -Session $Script:PSSession -ScriptBlock { Get-OrganizationConfig | Select-Object -ExpandProperty Identity}
         $script:LogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExchangePermissionsExportOperations.log')
         $script:ErrorLogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExchangePermissionsExportOperations-ERRORS.log')
 
@@ -332,7 +331,7 @@ Function Export-ExchangePermission
                 WriteLog -Message 'Building Recipient Lookup HashTables' -EntryType Notification
                 $ObjectGUIDHash = $InScopeRecipients | Select-Object -Property $HRPropertySet | Group-Object -AsHashTable -Property Guid -AsString
                 #Also Add the Exchange GUIDs to this lookup if we are dealing with Exchange Online
-                if ($ExchangeOrganizationIsInExchangeOnline)
+                if ($Script:OrganizationType -eq 'ExchangeOnline')
                 {
                     $InScopeRecipients | ForEach-Object -Process { $ObjectGUIDHash.$($_.ExchangeGuid.Guid) = $_ }
                 }
@@ -420,26 +419,26 @@ Function Export-ExchangePermission
                         If (($IncludeCalendar) -and (!($GlobalSendAs)))
                         {
                             Write-Verbose -Message "Getting Calendar Permissions for Target $ID"
-                            GetCalendarPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $Script:PSSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+                            GetCalendarPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $Script:PSSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
                         }
                         If (($IncludeAllFolder) -and (!($GlobalSendAs)))
                         {
                             Write-Verbose -Message "Getting Folder Permissions for Target $ID"
-                            GetAllFolderPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $Script:PSSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline
+                            GetAllFolderPermission -TargetMailbox $ISR -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $Script:PSSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
                         }
                         #Get Send As Users
                         If (($IncludeSendAs) -or ($GlobalSendAs))
                         {
                             Write-Verbose -Message "Getting SendAS Permissions for Target $ID"
-                            if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsInsteadOfADOrLDAP)
+                            if ($script:OrganizationType -eq 'ExchangeOnline' -or $UseExchangeCommandsInsteadOfADOrLDAP)
                             {
                                 Write-Verbose -Message "Getting SendAS Permissions for Target $ID Via Exchange Commands"
-                                GetSendASPermissionsViaExchange -TargetMailbox $ISR -ExchangeSession $Script:PSSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
+                                GetSendASPermissionsViaExchange -TargetMailbox $ISR -ExchangeSession $Script:PSSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
                             }
                             else
                             {
                                 Write-Verbose -Message "Getting SendAS Permissions for Target $ID Via LDAP Commands"
-                                GetSendASPermisssionsViaLocalLDAP -TargetMailbox $ISR -ExchangeSession $Script:PSSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedRecipientGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -ExchangeOrganizationIsInExchangeOnline $ExchangeOrganizationIsInExchangeOnline -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
+                                GetSendASPermisssionsViaLocalLDAP -TargetMailbox $ISR -ExchangeSession $Script:PSSession -ObjectGUIDHash $ObjectGUIDHash -excludedTrusteeGUIDHash $excludedRecipientGUIDHash -dropInheritedPermissions $dropInheritedPermissions -DomainPrincipalHash $DomainPrincipalHash -ExchangeOrganization $ExchangeOrganization -HRPropertySet $HRPropertySet -UnfoundIdentitiesHash $UnfoundIdentitiesHash
                             }
                         }
                     )
@@ -458,7 +457,7 @@ Function Export-ExchangePermission
                         }
                         if ($dropExpandedParentGroupPermissions -eq $true)
                         { $splat.dropExpandedParentGroupPermissions = $true }
-                        if ($ExchangeOrganizationIsInExchangeOnline -or $UseExchangeCommandsInsteadOfADOrLDAP)
+                        if ($Script:OrganizationType -eq 'ExchangeOnline' -or $UseExchangeCommandsInsteadOfADOrLDAP)
                         { $splat.UseExchangeCommandsInsteadOfADOrLDAP = $true }
                         $PermissionExportObjects = @(ExpandGroupPermission @splat)
                     }

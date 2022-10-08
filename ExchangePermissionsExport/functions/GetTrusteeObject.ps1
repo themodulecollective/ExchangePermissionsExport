@@ -20,8 +20,6 @@ Function GetTrusteeObject
         [hashtable]$UnfoundIdentitiesHash
         ,
         [System.Management.Automation.Runspaces.PSSession]$ExchangeSession
-        ,
-        $ExchangeOrganizationIsInExchangeOnline
     )
     $trusteeObject = $(
         $AddToLookup = $null
@@ -58,7 +56,7 @@ Function GetTrusteeObject
             }
             Default
             {
-                if ($ExchangeOrganizationIsInExchangeOnline -and $TrusteeIdentity -like '*\*')
+                if ($Script:OrganizationType -eq 'ExchangeOnline' -and $TrusteeIdentity -like '*\*')
                 {
                     $null
                 }
