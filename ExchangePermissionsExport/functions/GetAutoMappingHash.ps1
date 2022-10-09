@@ -19,7 +19,7 @@ Function GetAutoMappingHash
     {
         $message = "Get AD Users with msExchDelegateListLink from AD Drive $($activeDirectoryDrive.Name)"
         WriteLog -Message $message -EntryType Attempting
-        $AutoMappedUsers = @(Get-Aduser -ldapfilter '(&(legacyExchangeDN=*)(msExchDelegateListLink=*))' -Properties -ErrorAction Stop)
+        $AutoMappedUsers = @(Get-Aduser -ldapfilter '(&(legacyExchangeDN=*)(msExchDelegateListLink=*))' -Properties msExchMailboxGuid,msExchDelegateListLink -ErrorAction Stop)
         WriteLog -Message $message -EntryType Succeeded
     }
     Catch
@@ -44,14 +44,7 @@ Function GetAutoMappingHash
         {
             Write-Progress -Activity $message -Status "Items processed: $($counter) of $($AutoMappedUsers.Count)" -PercentComplete (($counter / $($AutoMappedUsers.Count)) * 100)
         }
-        $AutoMappers = @(
-            foreach ($dn in $u.msExchDelegateListLink)
-            {
-                $splat = @{Identity = $dn; ErrorAction = 'SilentlyContinue' }
-                (Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-Recipient @using:splat } -ErrorAction SilentlyContinue).ExchangeGuid.guid
-            }
-        )
-        $AutoMappingHash.$([guid]::new($u.msExchMailboxGuid).guid) = $AutoMappers
+        $AutoMappingHash.$([guid]::new($u.msExchMailboxGuid).guid) = $u.msExchDelegateListLink
 
     }#End Foreach
     $AutoMappingHash
