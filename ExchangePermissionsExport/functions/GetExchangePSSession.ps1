@@ -39,6 +39,7 @@ Function GetExchangePSSession
             }
             $NewPsSessionParams.ConnectionURI = 'http://' + $ExchangeServer + '/PowerShell/'
             $NewPsSessionParams.Authentication = 'Kerberos'
+            $NewPsSessionParams.Configuration = 'Microsoft.Exchange'
             $ExchangeSession = New-PSSession @NewPsSessionParams
             Invoke-Command -Session $ExchangeSession -ScriptBlock { Set-ADServerSettings -ViewEntireForest $true -ErrorAction 'Stop' } -ErrorAction Stop
         }
