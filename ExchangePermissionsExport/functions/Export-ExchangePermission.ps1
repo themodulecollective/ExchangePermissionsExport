@@ -81,6 +81,9 @@ Function Export-ExchangePermission
         #Include permissions that result from SIDHistory in AD (SendAS)
         [switch]$IncludeSIDHistory
         ,
+        #Include Automapping Details for Full Access - Can only be used with Exchange On Premises and Requires ActiveDirectoryDrive.
+        [switch]$IncludeAutoMapping
+        ,
         #Expands permissions assigned to a group out to the group members in the output.
         [bool]$expandGroups = $true
         ,
@@ -182,10 +185,10 @@ Function Export-ExchangePermission
                 $ExportedExchangePermissionsFile = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExportedExchangePermissions.csv')
                 $ResumeIndex = 0
                 [uint32]$Script:PermissionIdentity = 0
-                if ($IncludeSIDHistory -eq $true)
+                if ($true -eq $IncludeSIDHistory -or $true -eq $IncludeAutoMapping)
                 {
                     if ($null -eq $ActiveDirectoryDrive)
-                    { throw('If IncludeSIDHistory is required an Active Directory PS Drive connection to the appropriate domain or forest must be provided') }
+                    { throw('If IncludeSIDHistory or IncludeAutoMapping is required an Active Directory PS Drive connection to the appropriate domain or forest must be provided') }
                 }
                 #create a property set for storing of recipient data during processing.  We don't need all attributes in memory/storage.
                 $HRPropertySet = @('*name*', '*addr*', 'RecipientType*', '*Id', 'Identity', 'GrantSendOnBehalfTo')
@@ -317,7 +320,7 @@ Function Export-ExchangePermission
                 #EndRegion GetInScopeRecipients
 
                 #Region GetSIDHistoryData
-                if ($IncludeSIDHistory -eq $true)
+                if ($true -eq $IncludeSIDHistory)
                 {
                     $SIDHistoryRecipientHash = GetSIDHistoryRecipientHash -ActiveDirectoryDrive $ActiveDirectoryDrive -ExchangeSession $Script:PSSession -ErrorAction Stop
                 }
@@ -326,6 +329,17 @@ Function Export-ExchangePermission
                     $SIDHistoryRecipientHash = @{}
                 }
                 #EndRegion GetSIDHistoryData
+
+                #Region GetAutoMappingData
+                if ($true -eq $IncludeAutoMapping)
+                {
+                    $AutoMappingHash = GetAutoMappingHash -ActiveDirectoryDrive $ActiveDirectoryDrive -ExchangeSession $Script:PSSession -ErrorAction Stop
+                }
+                else
+                {
+                    $AutoMappingHash = @{}
+                }
+                #EndRegion GetAutoMappingData
 
                 #Region BuildLookupHashTables
                 WriteLog -Message 'Building Recipient Lookup HashTables' -EntryType Notification
@@ -344,6 +358,7 @@ Function Export-ExchangePermission
                 ExcludedRecipientGuidHash       = $ExcludedRecipientGuidHash
                 ExcludedTrusteeGuidHash         = $ExcludedTrusteeGuidHash
                 SIDHistoryRecipientHash         = $SIDHistoryRecipientHash
+                AutoMappingHash                 = $autoMappingHash
                 InScopeRecipients               = $InScopeRecipients
                 ObjectGUIDHash                  = $ObjectGUIDHash
                 outputFolderPath                = $outputFolderPath

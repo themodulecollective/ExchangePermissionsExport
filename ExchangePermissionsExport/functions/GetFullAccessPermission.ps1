@@ -72,6 +72,21 @@ Function GetFullAccessPermission
             {
                 if (-not $excludedTrusteeGUIDHash.ContainsKey($trusteeRecipient.guid.guid))
                 {
+
+                    $AutoMappingStatus = $(
+                        if ($autoMappingHash.ContainsKey($TargetMailbox.exchangeguid.guid))
+                        {
+                            if (
+                                $AutoMappingHash.$($TargetMailbox.exchangeguid.guid) -contains $trusteeRecipient.exchangeguid.guid
+                            )
+                            {$true} else {$null}
+                        }
+                        else
+                        {
+                            $null
+                        }
+                    )
+
                     $npeoParams = @{
                         TargetMailbox              = $TargetMailbox
                         TrusteeIdentity            = $user
@@ -79,6 +94,7 @@ Function GetFullAccessPermission
                         PermissionType             = 'FullAccess'
                         AssignmentType             = switch -Wildcard ($trusteeRecipient.RecipientTypeDetails) { '*group*' { 'GroupMembership' } $null { 'Undetermined' } Default { 'Direct' } }
                         IsInherited                = $fa.IsInherited
+                        IsAutoMapped               = $AutoMappingStatus
                         SourceExchangeOrganization = $ExchangeOrganization
                     }
                     NewPermissionExportObject @npeoParams

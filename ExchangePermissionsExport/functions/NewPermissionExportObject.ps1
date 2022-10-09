@@ -31,6 +31,8 @@ Function NewPermissionExportObject
         ,
         [boolean]$IsInherited = $False
         ,
+        [boolean]$IsAutoMapped = $null
+        ,
         [switch]$none
         ,
         $TargetFolderPath
@@ -60,6 +62,7 @@ Function NewPermissionExportObject
         TrusteeGroupObjectGUID      = $TrusteeGroupObjectGUID
         TrusteeIdentity             = $TrusteeIdentity
         IsInherited                 = $IsInherited
+        IsAutoMapped                = $IsAutoMapped
         TrusteeObjectGUID           = $null
         TrusteeExchangeGUID         = $null
         TrusteeDistinguishedName    = if ($None) { 'none' } else { $null }
