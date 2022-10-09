@@ -21,7 +21,7 @@ Function GetExchangePSSession
     {
         'ExchangeOnline'
         {
-            $NewPsSessionParams = @{}
+            $NewPsSessionParams = @{ErrorAction = 'Stop'}
             $NewPsSessionParams.EnableNetworkAccess = $true
             $ExchangeSession = New-PSSession @NewPsSessionParams
             Invoke-Command -Session $ExchangeSession -ScriptBlock {
@@ -32,7 +32,7 @@ Function GetExchangePSSession
         }
         'ExchangeOnPremises'
         {
-            $NewPsSessionParams = @{}
+            $NewPsSessionParams = @{ErrorAction = 'Stop'}
             if ($null -ne $Credential)
             {
                 $NewPsSessionParams.Credential = $Credential
