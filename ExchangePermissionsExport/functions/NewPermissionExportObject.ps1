@@ -31,7 +31,7 @@ Function NewPermissionExportObject
         ,
         [boolean]$IsInherited = $False
         ,
-        [boolean]$IsAutoMapped = $null
+        [Nullable[boolean]]$IsAutoMapped = $null
         ,
         [switch]$none
         ,

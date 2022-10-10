@@ -77,7 +77,18 @@ Function GetFullAccessPermission
                         if ($autoMappingHash.ContainsKey($TargetMailbox.exchangeguid.guid))
                         {
                             if (
-                                $AutoMappingHash.$($TargetMailbox.exchangeguid.guid) -contains $trusteeRecipient.DistinguishedName
+                                switch ($script:OrganizationType)
+                                {
+                                    'ExchangeOnPremises'
+                                    {
+                                        $AutoMappingHash.$($TargetMailbox.exchangeguid.guid) -contains $trusteeRecipient.DistinguishedName
+                                    }
+                                    'ExchangeOnline'
+                                    {
+                                        $AutoMappingHash.$($TargetMailbox.exchangeguid.guid) -contains $trusteeRecipient.Name
+                                    }
+                                }
+                                
                             )
                             {$true} else {$null}
                         }

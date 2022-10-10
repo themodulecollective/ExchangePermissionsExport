@@ -331,9 +331,9 @@ Function Export-ExchangePermission
                 #EndRegion GetSIDHistoryData
 
                 #Region GetAutoMappingData
-                if ($true -eq $IncludeAutoMapping)
+                if ($true -eq $IncludeAutoMapping -and $true)
                 {
-                    $AutoMappingHash = GetAutoMappingHash -ActiveDirectoryDrive $ActiveDirectoryDrive -ExchangeSession $Script:PSSession -ErrorAction Stop
+                    $AutoMappingHash = GetAutoMappingHash -ActiveDirectoryDrive $ActiveDirectoryDrive -ExchangeSession $Script:PSSession -ErrorAction Stop -InScopeRecipients $InScopeRecipients
                 }
                 else
                 {
