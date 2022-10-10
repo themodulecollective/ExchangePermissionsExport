@@ -87,8 +87,7 @@ Function GetFullAccessPermission
                                     {
                                         $AutoMappingHash.$($TargetMailbox.exchangeguid.guid) -contains $trusteeRecipient.Name
                                     }
-                                }
-                                
+                                }                                
                             )
                             {$true} else {$null}
                         }
