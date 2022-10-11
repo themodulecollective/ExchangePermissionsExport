@@ -43,7 +43,7 @@ Function GetCalendarPermission
                 }
                 else
                 {
-                    $TargetFolderPath = '\' + $CalendarFolderName
+                    $TargetFolderPath = '/' + $CalendarFolderName
                     #try again with the localized folder name
                     $splat.Identity = $($Identity + ':' + $TargetFolderPath)
                     Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-MailboxFolderPermission @using:splat } -ErrorAction Stop
