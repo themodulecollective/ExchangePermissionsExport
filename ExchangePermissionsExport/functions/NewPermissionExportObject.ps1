@@ -29,7 +29,7 @@ Function NewPermissionExportObject
         ,
         [string]$SourceExchangeOrganization = $ExchangeOrganization
         ,
-        [boolean]$IsInherited = $False
+        [Nullable[boolean]]$IsInherited = $False
         ,
         [Nullable[boolean]]$IsAutoMapped = $null
         ,

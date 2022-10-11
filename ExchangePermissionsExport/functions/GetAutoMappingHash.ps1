@@ -74,11 +74,17 @@ Function GetAutoMappingHash
         $counter++
         $message = 'Generating hash of Automapped Users and AutoMappers...'
         $ProgressInterval = [int]($($AutoMappedUsers.Count) * .01)
-        if ($automappedusers.count -ge 100 -and $($counter) % $ProgressInterval -eq 0)
+        if ($AutoMappedUsers.count -ge 100 -and $($counter) % $ProgressInterval -eq 0)
         {
             Write-Progress -Activity $message -Status "Items processed: $($counter) of $($AutoMappedUsers.Count)" -PercentComplete (($counter / $($AutoMappedUsers.Count)) * 100)
         }
-        $AutoMappingHash.$([guid]::new($u.msExchMailboxGuid).guid) = $u.msExchDelegateListLink
+        switch ($script:OrganizationType)
+        {
+            'ExchangeOnPremises'
+            {$AutoMappingHash.$([guid]::new($u.msExchMailboxGuid).guid) = $u.msExchDelegateListLink}
+            'ExchangeOnline'
+            {$AutoMappingHash.$($u.ExchangeGUID.guid) = $u.msExchDelegateListLink}
+        }
 
     }#End Foreach
     $AutoMappingHash

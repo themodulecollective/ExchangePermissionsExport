@@ -81,8 +81,11 @@ Function Export-ExchangePermission
         #Include permissions that result from SIDHistory in AD (SendAS)
         [switch]$IncludeSIDHistory
         ,
-        #Include Automapping Details for Full Access - Can only be used with Exchange On Premises and Requires ActiveDirectoryDrive.
+        #Include Automapping Details for Full Access Permissions. Requres -ActiveDirectoryDrive for Exchange On Premises.  
         [switch]$IncludeAutoMapping
+        ,
+        #Include Automapping settings independently from Full Access Permissions in output.  Requres -ActiveDirectoryDrive for Exchange On Premises.  
+        [switch]$IncludeAutoMappingSetting
         ,
         #Expands permissions assigned to a group out to the group members in the output.
         [bool]$expandGroups = $true
@@ -118,6 +121,7 @@ Function Export-ExchangePermission
     Begin
     {
         #$Stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        # Add Parameter Validation (for complex validations that would require many parameter sets otherwise)
         switch ($script:ConnectExchangeOrganizationCompleted)
         {
             $true
@@ -148,6 +152,8 @@ Function Export-ExchangePermission
         $ExchangeOrganization = Invoke-Command -Session $Script:PSSession -ScriptBlock { Get-OrganizationConfig | Select-Object -ExpandProperty Identity}
         $script:LogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExchangePermissionsExportOperations.log')
         $script:ErrorLogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExchangePermissionsExportOperations-ERRORS.log')
+
+
 
         switch ($PSCmdlet.ParameterSetName -eq 'Resume')
         {

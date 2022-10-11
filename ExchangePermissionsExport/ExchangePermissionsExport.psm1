@@ -41,6 +41,7 @@ $Script:ModuleFiles = @(
     $(Join-Path -Path $functions -ChildPath GetSendOnBehalfPermission.ps1)
     $(Join-Path -Path $functions -ChildPath GetSIDHistoryRecipientHash.ps1)
     $(Join-Path -Path $functions -ChildPath GetAutoMappingHash.ps1)
+    $(Join-Path -Path $functions -ChildPath GetAutoMappingSetting.ps1)
     $(Join-Path -Path $functions -ChildPath GetTrusteeObject.ps1)
     $(Join-Path -Path $functions -ChildPath ImportExchangePermissionExportResumeData.ps1)
     $(Join-Path -Path $functions -ChildPath NewPermissionExportObject.ps1)
