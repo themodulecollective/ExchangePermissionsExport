@@ -81,10 +81,10 @@ Function Export-ExchangePermission
         #Include permissions that result from SIDHistory in AD (SendAS)
         [switch]$IncludeSIDHistory
         ,
-        #Include Automapping Details for Full Access Permissions. Requres -ActiveDirectoryDrive for Exchange On Premises.  
+        #Include Automapping Details for Full Access Permissions. Requres -ActiveDirectoryDrive for Exchange On Premises.
         [switch]$IncludeAutoMapping
         ,
-        #Include Automapping settings independently from Full Access Permissions in output.  Requres -ActiveDirectoryDrive for Exchange On Premises.  
+        #Include Automapping settings independently from Full Access Permissions in output.  Requres -ActiveDirectoryDrive for Exchange On Premises.
         [switch]$IncludeAutoMappingSetting
         ,
         #Expands permissions assigned to a group out to the group members in the output.
@@ -153,8 +153,6 @@ Function Export-ExchangePermission
         $script:LogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExchangePermissionsExportOperations.log')
         $script:ErrorLogPath = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExchangePermissionsExportOperations-ERRORS.log')
 
-
-
         switch ($PSCmdlet.ParameterSetName -eq 'Resume')
         {
             $true
@@ -196,7 +194,7 @@ Function Export-ExchangePermission
                     if ($null -eq $ActiveDirectoryDrive)
                     { throw('If IncludeSIDHistory or IncludeAutoMapping is required an Active Directory PS Drive connection to the appropriate domain or forest must be provided') }
                 }
-                
+
                 #Region GetExcludedRecipients
                 if ($PSBoundParameters.ContainsKey('ExcludedIdentities'))
                 {
@@ -338,8 +336,8 @@ Function Export-ExchangePermission
                 if ($true -eq $IncludeAutoMapping)
                 {
                     $GAMHParams = @{
-                        ExchangeSession = $Script:PSSession
-                        ErrorAction = 'Stop'
+                        ExchangeSession   = $Script:PSSession
+                        ErrorAction       = 'Stop'
                         InScopeRecipients = $InScopeRecipients
                     }
                     if ($script:OrganizationType -eq 'ExchangeOnPremises')
@@ -411,6 +409,11 @@ Function Export-ExchangePermission
         WriteLog -message $message -EntryType Notification
         $ISRCounter = $ResumeIndex
         $ExportedPermissions = @(
+            If (($IncludeAutoMapping) -and ($IncludeAutoMappingSetting) -and (!($GlobalSendAs)))
+            {
+                Write-Verbose -Message 'Getting AutoMapping Settings As Permissions for All Automappings'
+                GetAutoMappingSetting -AutoMappingHash $AutoMappingHash -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $Script:PSSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -dropInheritedPermissions $dropInheritedPermissions -UnfoundIdentitiesHash $UnfoundIdentitiesHash
+            }
             :nextISR for
             (
                 $i = $ResumeIndex
