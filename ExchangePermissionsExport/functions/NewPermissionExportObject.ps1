@@ -16,7 +16,7 @@ Function NewPermissionExportObject
         $TrusteeRecipientObject
         ,
         [parameter(Mandatory)]
-        [ValidateSet('FullAccess', 'SendOnBehalf', 'SendAs', 'None', 'Folder')]
+        [ValidateSet('FullAccess', 'SendOnBehalf', 'SendAs', 'None', 'Folder','AutoMapping')]
         $PermissionType
         ,
         [parameter()]
