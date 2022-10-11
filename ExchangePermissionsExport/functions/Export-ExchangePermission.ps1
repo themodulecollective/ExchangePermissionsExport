@@ -185,14 +185,12 @@ Function Export-ExchangePermission
                 $ExportedExchangePermissionsFile = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExportedExchangePermissions.csv')
                 $ResumeIndex = 0
                 [uint32]$Script:PermissionIdentity = 0
-                if ($true -eq $IncludeSIDHistory -or $true -eq $IncludeAutoMapping)
+                if (($true -eq $IncludeSIDHistory -or $true -eq $IncludeAutoMapping) -and $Script:OrganizationType -eq 'ExchangeOnPremises' )
                 {
                     if ($null -eq $ActiveDirectoryDrive)
                     { throw('If IncludeSIDHistory or IncludeAutoMapping is required an Active Directory PS Drive connection to the appropriate domain or forest must be provided') }
                 }
-                #create a property set for storing of recipient data during processing.  We don't need all attributes in memory/storage.
-                $HRPropertySet = @('*name*', '*addr*', 'RecipientType*', '*Id', 'Identity', 'GrantSendOnBehalfTo')
-
+                
                 #Region GetExcludedRecipients
                 if ($PSBoundParameters.ContainsKey('ExcludedIdentities'))
                 {
@@ -331,9 +329,18 @@ Function Export-ExchangePermission
                 #EndRegion GetSIDHistoryData
 
                 #Region GetAutoMappingData
-                if ($true -eq $IncludeAutoMapping -and $true)
+                if ($true -eq $IncludeAutoMapping)
                 {
-                    $AutoMappingHash = GetAutoMappingHash -ActiveDirectoryDrive $ActiveDirectoryDrive -ExchangeSession $Script:PSSession -ErrorAction Stop -InScopeRecipients $InScopeRecipients
+                    $GAMHParams = @{
+                        ExchangeSession = $Script:PSSession
+                        ErrorAction = 'Stop'
+                        InScopeRecipients = $InScopeRecipients
+                    }
+                    if ($script:OrganizationType -eq 'ExchangeOnPremises')
+                    {
+                        $GAMHParams.ActiveDirectoryDrive = $activeDirectoryDrive
+                    }
+                    $AutoMappingHash = GetAutoMappingHash @GAMHParams
                 }
                 else
                 {

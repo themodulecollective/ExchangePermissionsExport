@@ -4,30 +4,30 @@ Function GetAutoMappingHash
     [cmdletbinding()]
     param
     (
-        [parameter(Mandatory)]
+        [parameter()]
         $ActiveDirectoryDrive
         ,
-        [psobject]$InScopeRecipients
+        [psobject[]]$InScopeRecipients
         ,
         [System.Management.Automation.Runspaces.PSSession]$ExchangeSession
     )#End param
 
-    Push-Location
-    WriteLog -Message 'Operation: Retrieve Mapping for all user objects with msExchDelegateListLink.'
-
-    #Region Get user object with msExchdelegateListLink
-    Set-Location $($ActiveDirectoryDrive.Name + ':\') -ErrorAction Stop
     Try
     {
 
-        
-        swtich ($script:OrganizationType)
+        switch ($script:OrganizationType)
         {
             'ExchangeOnPremises'
             {
+                Push-Location
+                WriteLog -Message 'Operation: Retrieve Mapping for all user objects with msExchDelegateListLink.'            
+                #Region Get user object with msExchdelegateListLink
+                Set-Location $($ActiveDirectoryDrive.Name + ':\') -ErrorAction Stop
                 $message = "Get AD Users with msExchDelegateListLink from AD Drive $($activeDirectoryDrive.Name)"
                 WriteLog -Message $message -EntryType Attempting
                 $AutoMappedUsers = @(Get-Aduser -ldapfilter '(&(legacyExchangeDN=*)(msExchDelegateListLink=*))' -Properties msExchMailboxGuid,msExchDelegateListLink -ErrorAction Stop)
+                Pop-Location
+                #EndRegion msExchdelegateListLink
             }
             'ExchangeOnline'
             {
@@ -40,11 +40,11 @@ Function GetAutoMappingHash
                         $counter++
                         $message = 'Getting Mailbox Owner Object From Exchange Online AD'
                         $ProgressInterval = [int]($($InScopeRecipients.Count) * .01)
-                        if ($($counter) % $ProgressInterval -eq 0)
+                        if ($InScopeRecipients.count -ge 100 -and $($counter) % $ProgressInterval -eq 0 )
                         {
                             Write-Progress -Activity $message -Status "Items processed: $($counter) of $($InScopeRecipients.Count)" -PercentComplete (($counter / $($InScopeRecipients.Count)) * 100)
                         }
-                        $splat = @{Identity = $isr.ObjectGuid.guid; Onwer = $true ;ErrorAction = 'SilentlyContinue' } 
+                        $splat = @{Identity = $isr.exchangeguid.guid; ReadFromDomainController = $true; Owner = $true ;ErrorAction = 'SilentlyContinue'} 
                         $MailboxOwnerObject = $Null
                         $MailboxOwnerObject = Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-MailboxPermission @using:splat } -ErrorAction SilentlyContinue
                         If ($null -ne $MailboxOwnerObject -and $MailboxOwnerObject.DelegateListLink.count -ge 1)
@@ -55,8 +55,8 @@ Function GetAutoMappingHash
                 )
             }
         }
-        
         WriteLog -Message $message -EntryType Succeeded
+        WriteLog -Message "Got $($AutoMappedUsers.count) Users from AD" -EntryType Notification
     }
     Catch
     {
@@ -65,9 +65,7 @@ Function GetAutoMappingHash
         WriteLog -Message $myError.tostring() -ErrorLog
         throw("Failed: $Message")
     }
-    Pop-Location
-    WriteLog -Message "Got $($msExchDelegateListLinkUsers.count) Users with msExchDelegateListLink from AD $($ActiveDirectoryDrive.name)" -EntryType Notification
-    #EndRegion msExchdelegateListLink
+
 
     $counter = 0
     $AutoMappingHash = @{}
@@ -76,7 +74,7 @@ Function GetAutoMappingHash
         $counter++
         $message = 'Generating hash of Automapped Users and AutoMappers...'
         $ProgressInterval = [int]($($AutoMappedUsers.Count) * .01)
-        if ($($counter) % $ProgressInterval -eq 0)
+        if ($automappedusers.count -ge 100 -and $($counter) % $ProgressInterval -eq 0)
         {
             Write-Progress -Activity $message -Status "Items processed: $($counter) of $($AutoMappedUsers.Count)" -PercentComplete (($counter / $($AutoMappedUsers.Count)) * 100)
         }

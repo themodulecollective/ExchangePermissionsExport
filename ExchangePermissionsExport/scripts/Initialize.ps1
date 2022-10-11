@@ -2,9 +2,10 @@
 ###############################################################################################
 # Module Variables
 ###############################################################################################
-$ModuleVariableNames = ('ExchangePermissionsExportConfiguration', 'ConnectExchangeOrganizationCompleted', 'OrganizationType')
+$ModuleVariableNames = ('ExchangePermissionsExportConfiguration', 'ConnectExchangeOrganizationCompleted', 'OrganizationType','HRPropertySet')
 $ModuleVariableNames.ForEach( { Set-Variable -Scope Script -Name $_ -Value $null })
 $script:ConnectExchangeOrganizationCompleted = $false
+$script:HRPropertySet = @('*name*', '*addr*', 'RecipientType*', '*Id', 'Identity', 'GrantSendOnBehalfTo')
 #enum InstallManager { Chocolatey; Git; PowerShellGet; Manual; WinGet }
 
 ###############################################################################################
