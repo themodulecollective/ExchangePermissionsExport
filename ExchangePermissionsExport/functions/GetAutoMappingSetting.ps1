@@ -1,4 +1,4 @@
-Function GetFullAccessPermission
+Function GetAutoMappingSetting
 {
 
     [cmdletbinding()]
