@@ -23,11 +23,18 @@ Function GetAutoMappingSetting
         $HRPropertySet #Property set for recipient object inclusion in object lookup hashtables
     )
     GetCallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
-
+    $counter = 0
+    $itemcount = $AutoMappingHash.keys.count
     $rawAutoMapping = @(
         foreach ($amu in $AutoMappingHash.getenumerator())
         {
-
+            $counter++
+            $message = 'Getting Recipient Object for the Mapped Mailbox'
+            $ProgressInterval = [int]($($itemcount) * .01)
+            if ($itemcount -ge 100 -and $($counter) % $ProgressInterval -eq 0 )
+            {
+                Write-Progress -Activity $message -Status "Items processed: $($counter) of $($itemcount)" -PercentComplete (($counter / $($Itemcount)) * 100)
+            }
             $targetRecipient = GetTrusteeObject -TrusteeIdentity $amu.name  -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -UnfoundIdentitiesHash $UnFoundIdentitiesHash
             foreach ($v in $amu.value)
             {
@@ -39,9 +46,17 @@ Function GetAutoMappingSetting
         }
     )
     
-
+    $counter = 0
+    $itemcount = $rawAutoMapping.count
     foreach ($am in $rawAutoMapping)
     {
+        $counter++
+        $message = 'Getting Recipient Object for the Mapping User and Getting Permission Output Object'
+        $ProgressInterval = [int]($($itemcount) * .01)
+        if ($itemcount -ge 100 -and $($counter) % $ProgressInterval -eq 0 )
+        {
+            Write-Progress -Activity $message -Status "Items processed: $($counter) of $($itemcount)" -PercentComplete (($counter / $($Itemcount)) * 100)
+        }
         $user = $am.User
         $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $user -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -UnfoundIdentitiesHash $UnFoundIdentitiesHash
         switch ($null -eq $trusteeRecipient)
