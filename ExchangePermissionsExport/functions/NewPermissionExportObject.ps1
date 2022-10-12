@@ -49,9 +49,10 @@ Function NewPermissionExportObject
         ParentPermissionIdentity    = $ParentPermissionIdentity
         SourceExchangeOrganization  = $SourceExchangeOrganization
         TargetObjectGUID            = $TargetMailbox.Guid.Guid
-        TargetObjectExchangeGUID    = $TargetMailbox.ExchangeGuid.Guid
+        TargetExchangeGUID    = $TargetMailbox.ExchangeGuid.Guid
         TargetDistinguishedName     = $TargetMailbox.DistinguishedName
         TargetPrimarySMTPAddress    = $TargetMailbox.PrimarySmtpAddress.ToString()
+        TargetAlias = $TargetMailbox.Alias
         TargetRecipientType         = $TargetMailbox.RecipientType
         TargetRecipientTypeDetails  = $TargetMailbox.RecipientTypeDetails
         TargetFolderPath            = $TargetFolderPath
@@ -67,6 +68,7 @@ Function NewPermissionExportObject
         TrusteeExchangeGUID         = $null
         TrusteeDistinguishedName    = if ($None) { 'none' } else { $null }
         TrusteePrimarySMTPAddress   = if ($None) { 'none' } else { $null }
+        TrusteeAlias = $null
         TrusteeRecipientType        = $null
         TrusteeRecipientTypeDetails = $null
     }
@@ -76,6 +78,7 @@ Function NewPermissionExportObject
         $PermissionExportObject.TrusteeExchangeGUID = $TrusteeRecipientObject.ExchangeGuid.Guid
         $PermissionExportObject.TrusteeDistinguishedName = $TrusteeRecipientObject.DistinguishedName
         $PermissionExportObject.TrusteePrimarySMTPAddress = $TrusteeRecipientObject.PrimarySmtpAddress.ToString()
+        $PermissionExportObject.TrusteePrimarySMTPAddress = $TrusteeRecipientObject.Alias
         $PermissionExportObject.TrusteeRecipientType = $TrusteeRecipientObject.RecipientType
         $PermissionExportObject.TrusteeRecipientTypeDetails = $TrusteeRecipientObject.RecipientTypeDetails
     }
