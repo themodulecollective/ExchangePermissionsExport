@@ -68,7 +68,8 @@ Function Connect-ExchangeOrganization
                 throw('PowerShell Module ExchangeOnlineManagement 3.0.0 or later is required.')
             }
         }
-        $GetExchangePSSessionParams.ConnectExchangeOnlineParams = $ConnectExchangeOnlineParams
+        $Script:ConnectExchangeOnlineParams = $ConnectExchangeOnlineParams
+        $GetExchangePSSessionParams.ConnectExchangeOnlineParams = $script:ConnectExchangeOnlineParams
     }
     if ($OnPremises)
     {
