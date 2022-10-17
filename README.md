@@ -116,26 +116,29 @@ This approach avoids other sometimes confusing or ambiguous terminology associat
 
 Each permission is exported with the following details as applicable/possible:
 
-- PermissionIdentity          = [incrementing value for this export]
-- ParentPermissionIdentity    = [if the original permission was a group, the group permission Identity]
-- SourceExchangeOrganization  = [determined from the Get-OrganizationConfig command]
+- PermissionIdentity          = guid
+- ParentPermissionIdentity    = if the original permission was a group, the group permission Identity
+- SourceExchangeOrganization  = Identity from the Get-OrganizationConfig command
 - TargetObjectGUID            = AD or Exchange Online GUID
-- TargetObjectExchangeGUID    = ExchangeGUID if available
+- TargetExchangeGUID    = ExchangeGUID, if available
 - TargetDistinguishedName     = AD or Exchange Online Distinguished Name
 - TargetPrimarySMTPAddress    = Primary SMTP Address
+- TargetAlias = target exchange alias / mailnickname
 - TargetRecipientType         = RecipientType
 - TargetRecipientTypeDetails  = RecipientTypeDetails
-- TargetFolderPath            = [for folder permissions, the folder path, otherwise - NULL]
-- TargetFolderType            = [for folder permissions, the folder type, otherwise NULL]
-- FolderAccessRights          = [for folder permissions, the folder access rights, delimited by | if necessary]
-- PermissionType              = [FullAccess,SendAS,SendOnBehalf,Folder,None]
-- AssignmentType              = [Direct,Undetermined,Group]
-- TrusteeGroupObjectGUID      = [if the original permission holder was a group, the group AD or Exchange Online object guid]
-- TrusteeIdentity             = [the identifier value from the permission object that was used to try to resolve the Trustee]
-- IsInherited                 = [IsInherited]
-- TrusteeObjectGUID           = [the trustee object's AD guid or Exchange Online Guid if the trustee was resolved]
-- TrusteeExchangeGUID         = [the trustee object's ExchangeGUID if trustee was resolved and an ExchangeGUID was found]
-- TrusteeDistinguishedName    = [the trustee object's distinguished name if the trustee was resolved]
-- TrusteePrimarySMTPAddress   = [the trustee object's primary smtp address if the trustee was resolved and a primary smtp address was found]
-- TrusteeRecipientType        = [Recipient type from the resolved trustee object]
-- TrusteeRecipientTypeDetails = [Recipient type details from the resolved trustee object]
+- TargetFolderPath            = for folder permissions, the folder path, otherwise - NULL
+- TargetFolderType            = for folder permissions, the folder type, otherwise NULL
+- FolderAccessRights          = for folder permissions, the folder access rights, delimited by | if necessary
+- PermissionType              = FullAccess,SendAS,SendOnBehalf,Folder,None,AutoMapping
+- AssignmentType              = Direct,Undetermined,Group
+- TrusteeGroupObjectGUID      = if the original permission holder was a group, the group AD or Exchange Online object guid
+- TrusteeIdentity             = the identifier value from the permission object that was used to try to resolve the Trustee
+- IsInherited                 = boolean
+- IsAutoMapped = boolean for FullAccess permissions.  NULL if not FullAccess or not AutoMapped.
+- TrusteeObjectGUID           = the trustee object's AD guid or Exchange Online Guid if the trustee was resolved
+- TrusteeExchangeGUID         = the trustee object's ExchangeGUID if trustee was resolved and an ExchangeGUID was found
+- TrusteeDistinguishedName    = the trustee object's distinguished name if the trustee was resolved
+- TrusteePrimarySMTPAddress   = the trustee object's primary smtp address if the trustee was resolved and a primary smtp address was found
+- TrusteeAlias = trustee exchange alias / mailnickname
+- TrusteeRecipientType        = Recipient type from the resolved trustee object
+- TrusteeRecipientTypeDetails = Recipient type details from the resolved trustee object
