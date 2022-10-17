@@ -12,7 +12,6 @@ Function ImportExchangePermissionExportResumeData
     $ResumeIDFilePath = Join-Path -Path $parentpath -ChildPath $($ImportedExchangePermissionsExportResumeData.TimeStamp + 'ExchangePermissionExportResumeID.xml')
     $ResumeIDs = Import-Clixml -Path $ResumeIDFilePath -ErrorAction Stop
     $ImportedExchangePermissionsExportResumeData.ResumeID = $ResumeIDs.ResumeID
-    $ImportedExchangePermissionsExportResumeData.NextPermissionIdentity = $ResumeIDs.NextPermissionIdentity
     $ImportedExchangePermissionsExportResumeData
 
 }

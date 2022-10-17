@@ -42,10 +42,9 @@ Function NewPermissionExportObject
         $FolderAccessRights
 
     )#End Param
-    $Script:PermissionIdentity++
     $PermissionExportObject =
     [pscustomobject]@{
-        PermissionIdentity          = $Script:PermissionIdentity
+        PermissionIdentity          = [guid]::new()
         ParentPermissionIdentity    = $ParentPermissionIdentity
         SourceExchangeOrganization  = $SourceExchangeOrganization
         TargetObjectGUID            = $TargetMailbox.Guid.Guid

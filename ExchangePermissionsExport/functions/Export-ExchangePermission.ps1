@@ -165,7 +165,6 @@ Function Export-ExchangePermission
                 $InScopeRecipientCount = $InScopeRecipients.count
                 $ObjectGUIDHash = $ImportedExchangePermissionsExportResumeData.ObjectGUIDHash
                 $ResumeIdentity = $ImportedExchangePermissionsExportResumeData.ResumeID
-                [uint32]$Script:PermissionIdentity = $ImportedExchangePermissionsExportResumeData.NextPermissionIdentity
                 $ExportedExchangePermissionsFile = $ImportedExchangePermissionsExportResumeData.ExportedExchangePermissionsFile
                 foreach ($v in $ImportedExchangePermissionsExportResumeData.ExchangePermissionsExportParameters)
                 {
@@ -188,7 +187,6 @@ Function Export-ExchangePermission
                 WriteLog -Message "Provided Exchange Session is Running in Exchange Organzation $ExchangeOrganization" -EntryType Notification
                 $ExportedExchangePermissionsFile = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExportedExchangePermissions.csv')
                 $ResumeIndex = 0
-                [uint32]$Script:PermissionIdentity = 0
                 if (($true -eq $IncludeSIDHistory -or $true -eq $IncludeAutoMapping) -and $Script:OrganizationType -eq 'ExchangeOnPremises' )
                 {
                     if ($null -eq $ActiveDirectoryDrive)
@@ -405,7 +403,6 @@ Function Export-ExchangePermission
     End
     {
         #Set Up to Loop through Mailboxes/Recipients
-        $message = "First Permission Identity will be $($Script:PermissionIdentity)"
         WriteLog -message $message -EntryType Notification
         $ISRCounter = $ResumeIndex
         $ExportedPermissions = @(
@@ -542,9 +539,8 @@ Function Export-ExchangePermission
                             {
                                 WriteLog -Message "Resume File $ResumeFile is available to resume this operation after you have re-connected the Exchange Session" -Verbose
                                 WriteLog -Message "Resume Recipient ID is $ID" -Verbose
-                                $ResumeIDFile = ExportResumeID -ID $ID -outputFolderPath $OutputFolderPath -TimeStamp $BeginTimeStamp -NextPermissionID $Script:PermissionIdentity
+                                $ResumeIDFile = ExportResumeID -ID $ID -outputFolderPath $OutputFolderPath -TimeStamp $BeginTimeStamp
                                 WriteLog -Message "Resume ID $ID exported to file $resumeIDFile" -Verbose
-                                WriteLog -Message "Next Permission Identity $($Script:PermissionIdentity) exported to file $resumeIDFile" -Verbose
                                 $message = "Run `'Get-ExchangePermission -ResumeFile $ResumeFile`' and also specify any common parameters desired (such as -verbose) since common parameters are not included in the Resume Data File."
                                 WriteLog -Message $message -EntryType Notification -verbose
                             }
@@ -585,9 +581,8 @@ Function Export-ExchangePermission
                         {
                             WriteLog -Message "Resume File $ResumeFile is available to resume this operation after you have re-connected the Exchange Session" -Verbose
                             WriteLog -Message "Resume Recipient ID is $ID" -Verbose
-                            $ResumeIDFile = ExportResumeID -ID $ID -outputFolderPath $OutputFolderPath -TimeStamp $BeginTimeStamp -NextPermissionID $Script:PermissionIdentity
+                            $ResumeIDFile = ExportResumeID -ID $ID -outputFolderPath $OutputFolderPath -TimeStamp $BeginTimeStamp
                             WriteLog -Message "Resume ID $ID exported to file $resumeIDFile" -Verbose
-                            WriteLog -Message "Next Permission Identity $($Script:PermissionIdentity) exported to file $resumeIDFile" -Verbose
                             $message = "Run `'Get-ExchangePermission -ResumeFile $ResumeFile`' and also specify any common parameters desired (such as -verbose) since common parameters are not included in the Resume Data File."
                             WriteLog -Message $message -EntryType Notification -verbose
                         }
