@@ -107,16 +107,8 @@ Function Export-ExchangePermission
         #Excludes a record output for mailboxes where no permissions are found
         [switch]$ExcludeNonePermissionOutput
         ,
-        #Enables resume of a long running permissions operation.  Use only if required.
-        [switch]$EnableResume
-        ,
         #Stores all permission output in a global scope variable for review at the command line after export has completed.
         [switch]$KeepExportedPermissionsInGlobalVariable
-        ,
-        #Used to resume a long running export operation that has been interrupted.
-        [Parameter(ParameterSetName = 'Resume', Mandatory)]
-        [ValidateScript( { Test-Path -Path $_ })]
-        [string]$ResumeFile
     )#End Param
     Begin
     {
