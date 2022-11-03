@@ -336,13 +336,21 @@ Function Export-ExchangePermission
 
         #Set Up to Loop through Mailboxes/Recipients
         WriteLog -message $message -EntryType Notification
-        $ISRCounter = 0
         $ExportedPermissions = @(
             If (($IncludeAutoMapping) -and ($IncludeAutoMappingSetting) -and (!($GlobalSendAs)))
             {
                 Write-Verbose -Message 'Getting AutoMapping Settings As Permissions for All Automappings'
                 GetAutoMappingSetting -AutoMappingHash $AutoMappingHash -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $Script:PSSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -dropInheritedPermissions $dropInheritedPermissions -UnfoundIdentitiesHash $UnfoundIdentitiesHash
             }
+            #Set up progress bar
+            $iXPParams = @{
+                ArrayToProcess             = $InScopeRecipients
+                CalculatedProgressInterval = '1Percent'
+                Activity                   = 'Collect Permissions for In Scope Recipients'
+            }
+            $ISRxProgress = Initialize-xProgress @iXPParams
+
+            #Set up permissions collection loop
             :nextISR for
             (
                 $i = $ResumeIndex
@@ -350,18 +358,20 @@ Function Export-ExchangePermission
                 $(if ($Recovering) { $i = $ResumeIndex } else { $i++ })
                 #$ISR in $InScopeRecipients[$ResumeIndex..$()]
             )
+
             {
                 $Recovering = $false
-                $ISRCounter++
+                Write-xProgress -Identity $ISRxProgress
                 $ISR = $InScopeRecipients[$i]
                 $ID = $ISR.guid.guid
+
                 if ($excludedRecipientGUIDHash.ContainsKey($ISR.guid.Guid))
                 {
                     WriteLog -Message "Excluding Excluded Recipient $ID"
                     continue nextISR
                 }
+
                 $message = "Collect permissions for $($ID)"
-                Write-Progress -Activity $message -Status "Items processed: $($ISRCounter) of $($InScopeRecipientCount)" -PercentComplete (($ISRCounter / $InScopeRecipientCount) * 100)
                 Try
                 {
                     WriteLog -Message $message -EntryType Attempting
@@ -455,7 +465,7 @@ Function Export-ExchangePermission
                             $script:PsSession = GetExchangePSSession @GetExchangePSSessionParams
                             WriteLog -Message 'Establish New PSSession to Exchange Organization' -EntryType Succeeded
                             $ResumeIndex = getarrayIndexForIdentity -array $InScopeRecipients -property 'guid' -Value $ID -ErrorAction Stop
-                            $ISRCounter--
+                            Set-xProgress -Identity $ISRxProgress -DecrementCounter
                             $Recovering = $true
                             continue nextISR
                         }
@@ -479,12 +489,15 @@ Function Export-ExchangePermission
                     WriteLog -Message $message -EntryType Failed -ErrorLog -Verbose
                     WriteLog -Message $myError.tostring() -ErrorLog -Verbose
                     $ResumeIndex = getarrayIndexForIdentity -array $InScopeRecipients -property 'guid' -Value $ID -ErrorAction Stop
-                    $ISRCounter--
+                    Set-xProgress -Identity $ISRxProgress -DecrementCounter
                     $Recovering = $true
                     continue nextISR
                 }
             }#Foreach recipient in set
         )# end ExportedPermissions
+
+        Complete-xProgress -Identity $ISRxProgress
+
         if ($ExportedPermissions.Count -ge 1)
         {
             Try

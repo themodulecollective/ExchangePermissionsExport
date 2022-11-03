@@ -12,13 +12,13 @@
     RootModule        = 'ExchangePermissionsExport.psm1'
 
     # Version number of this module.
-    ModuleVersion     = '3.0.3'
+    ModuleVersion     = '3.1.0'
 
     # ID used to uniquely identify this module
     GUID              = 'f002252b-bbda-4a1e-9fb0-0a194bb1fada'
 
     # Author of this module
-    Author            = 'Mike Campbell and Joe Sutherland'
+    Author            = 'Mike Campbell, Joe Sutherland, Ben Pulido'
 
     # Company or vendor of this module
     CompanyName       = 'The Module Collective'
@@ -48,7 +48,7 @@
     # ProcessorArchitecture = ''
 
     # Modules that must be imported into the global environment prior to importing this module
-    # RequiredModules = @(PsMenu)
+    RequiredModules   = @('xProgress')
 
     # Assemblies that must be loaded prior to importing this module
     # RequiredAssemblies = @()
