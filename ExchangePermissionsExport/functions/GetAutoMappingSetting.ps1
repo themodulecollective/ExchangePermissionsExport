@@ -24,25 +24,25 @@ Function GetAutoMappingSetting
     )
     GetCallerPreference -Cmdlet $PSCmdlet -SessionState $ExecutionContext.SessionState -Name VerbosePreference
 
-    $PiXPParams = @{
+    $PxPParams = @{
         ArrayToProcess             = @(1,2)
         CalculatedProgressInterval = 'Each'
         Activity                   = 'Get AutoMapping "Permissions" Process'
         Status                     = 'Step 1 of 2'
     }
-    $PxProgressID = Initialize-xProgress @PiXPParams
-    $iXPParams = @{
+    $PxPID = New-xProgress @PxPParams
+    $CxPParams = @{
         ArrayToProcess             = @($AutoMappingHash.GetEnumerator())
         CalculatedProgressInterval = '1Percent'
         Activity                   = 'Get Recipient Object(s) for the Mapped Mailboxes'
-        xParentIdentity            = $PxProgressID
+        xParentIdentity            = $PxPID
     }
-    $xProgressID = Initialize-xProgress @iXPParams
-    Write-xProgress -Identity $PxProgressID
+    $CxPID = New-xProgress @CxPParams
+    Write-xProgress -Identity $PxPID
     $rawAutoMapping = @(
         foreach ($amu in $AutoMappingHash.getenumerator())
         {
-            Write-xProgress -Identity $xProgressID
+            Write-xProgress -Identity $CxPID
             $targetRecipient = GetTrusteeObject -TrusteeIdentity $amu.name -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -UnfoundIdentitiesHash $UnFoundIdentitiesHash
             foreach ($v in $amu.value)
             {
@@ -53,19 +53,19 @@ Function GetAutoMappingSetting
             }
         }
     )
-    Complete-xProgress -Identity $xProgressID
-    $iXPParams = @{
+    Complete-xProgress -Identity $CxPID
+    $CxPParams = @{
         ArrayToProcess             = @($rawAutoMapping)
         CalculatedProgressInterval = '1Percent'
         Activity                   = 'Get Recipient Object for the Mapping User and Get Permission Output Object'
-        xParentIdentity            = $PxProgressID
+        xParentIdentity            = $PxPID
     }
-    $xProgressID = Initialize-xProgress @iXPParams
-    Set-xProgress -Identity $PxProgressID -Status 'Step 2 of 2'
-    Write-xProgress -Identity $PxProgressID
+    $CxPID = New-xProgress @CxPParams
+    Set-xProgress -Identity $PxPID -Status 'Step 2 of 2'
+    Write-xProgress -Identity $PxPID
     foreach ($am in $rawAutoMapping)
     {
-        Write-xProgress -Identity $xProgressID
+        Write-xProgress -Identity $CxPID
         $user = $am.User
         $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $user -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -UnfoundIdentitiesHash $UnFoundIdentitiesHash
         switch ($null -eq $trusteeRecipient)
@@ -103,6 +103,6 @@ Function GetAutoMappingSetting
             }#end $false
         }#end switch
     }#end foreach am
-    Complete-xProgress -Identity $xProgressID
-    Complete-xProgress -Identity $PxProgressID
+    Complete-xProgress -Identity $CxPID
+    Complete-xProgress -Identity $PxPID
 }

@@ -22,14 +22,14 @@ Function GetSIDHistoryRecipientHash
         Activity                   = 'Generate Mapping for all User Recipients with SIDHistory.'
         Status                     = 'Step 1 of 2'
     }
-    $PxProgressID = Initialize-xProgress @PiXPParams
+    $PxProgressID = New-xProgress @PiXPParams
     $iXPParams = @{
         ArrayToProcess             = @(1)
         CalculatedProgressInterval = 'Each'
         Activity                   = "Get AD Users with SIDHistory from AD Drive $($activeDirectoryDrive.Name)"
         xParentIdentity            = $PxProgressID
     }
-    $xProgressID = Initialize-xProgress @iXPParams
+    $xProgressID = New-xProgress @iXPParams
     Write-xProgress -Identity $PxProgressID
     Try
     {
@@ -57,7 +57,7 @@ Function GetSIDHistoryRecipientHash
         Activity                   = 'Generating hashtable of SIDHistory SIDs and Recipient objects...'
         xParentIdentity            = $PxProgressID
     }
-    $xProgressID = Initialize-xProgress @iXPParams
+    $xProgressID = New-xProgress @iXPParams
     Set-xProgress -Identity $PxProgressID -Status 'Step 2 of 2'
     Write-xProgress -Identity $PxProgressID
 

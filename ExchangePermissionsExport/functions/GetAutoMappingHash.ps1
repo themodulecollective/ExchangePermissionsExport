@@ -39,7 +39,7 @@ Function GetAutoMappingHash
                     CalculatedProgressInterval = '1Percent'
                     Activity                   = 'Collect Automapping for In Scope Recipients'
                 }
-                $xProgressID = Initialize-xProgress @iXPParams
+                $xProgressID = New-xProgress @iXPParams
                 $AutoMappedUsers = @(
                     Foreach ($isr in $InScopeRecipients)
                     {
@@ -73,7 +73,7 @@ Function GetAutoMappingHash
         CalculatedProgressInterval = '1Percent'
         Activity                   = 'Generating hash of Automapped Users and AutoMappers...'
     }
-    $xProgressID = Initialize-xProgress @iXPParams
+    $xProgressID = New-xProgress @iXPParams
 
     $AutoMappingHash = @{}
     Foreach ($u in $AutoMappedUsers)
@@ -88,5 +88,6 @@ Function GetAutoMappingHash
         }
 
     }#End Foreach
+    Complete-xProgress -Identity $xProgressID
     $AutoMappingHash
 }
