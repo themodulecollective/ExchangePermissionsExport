@@ -15,7 +15,7 @@ Function GetSIDHistoryRecipientHash
 
     #Region GetSIDHistoryUsers
     Set-Location $($ActiveDirectoryDrive.Name + ':\') -ErrorAction Stop
-
+    # setup progress params and objects
     $PiXPParams = @{
         ArrayToProcess             = @(1,2)
         CalculatedProgressInterval = 'Each'
@@ -29,11 +29,18 @@ Function GetSIDHistoryRecipientHash
         Activity                   = "Get AD Users with SIDHistory from AD Drive $($activeDirectoryDrive.Name)"
         xParentIdentity            = $PxProgressID
     }
-    $xProgressID = New-xProgress @iXPParams
+    $xProgressID1 = New-xProgress @iXPParams
+    $iXPParams = @{
+        ArrayToProcess             = @(1)
+        CalculatedProgressInterval = 'Each'
+        Activity                   = 'Get Exchange Recipient with SIDHistory from Exchange'
+        xParentIdentity            = $PxProgressID
+    }
+    $xProgressID2 = New-xProgress @iXPParams
     Write-xProgress -Identity $PxProgressID
     Try
     {
-        Write-xProgress -Identity $xProgressID
+        Write-xProgress -Identity $xProgressID1
         $message = "Get AD Users with SIDHistory from AD Drive $($activeDirectoryDrive.Name)"
         WriteLog -Message $message -EntryType Attempting
         $sidHistoryUsers = @(Get-Aduser -ldapfilter '(&(legacyExchangeDN=*)(sidhistory=*))' -Properties sidhistory, legacyExchangeDN -ErrorAction Stop)
@@ -48,23 +55,16 @@ Function GetSIDHistoryRecipientHash
     }
     Pop-Location
     WriteLog -Message "Got $($sidHistoryUsers.count) Users with SID History from AD $($ActiveDirectoryDrive.name)" -EntryType Notification
-    Complete-xProgress -Identity $xProgressID
+    Complete-xProgress -Identity $xProgressID1
     #EndRegion GetSIDHistoryUsers
 
-    $iXPParams = @{
-        ArrayToProcess             = $sidHistoryUsers
-        CalculatedProgressInterval = 'Each'
-        Activity                   = 'Generating hashtable of SIDHistory SIDs and Recipient objects...'
-        xParentIdentity            = $PxProgressID
-    }
-    $xProgressID = New-xProgress @iXPParams
     Set-xProgress -Identity $PxProgressID -Status 'Step 2 of 2'
     Write-xProgress -Identity $PxProgressID
 
     $SIDHistoryRecipientHash = @{}
     Foreach ($shu in $sidhistoryusers)
     {
-        Write-xProgress -Identity $xProgressID
+        Write-xProgress -Identity $xProgressID2
         $splat = @{Identity = $shu.ObjectGuid.guid; ErrorAction = 'SilentlyContinue' } #is this a good assumption?
         $sidhistoryuserrecipient = $Null
         $sidhistoryuserrecipient = Invoke-Command -Session $ExchangeSession -ScriptBlock { Get-Recipient @using:splat } -ErrorAction SilentlyContinue
@@ -76,6 +76,7 @@ Function GetSIDHistoryRecipientHash
             }#End Foreach
         }#end If
     }#End Foreach
-    Complete-xProgress -Identity $xProgressID
+    Complete-xProgress -Identity $xProgressID2
+    Complete-xProgress -Identity $PxProgressID
     $SIDHistoryRecipientHash
 }
