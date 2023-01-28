@@ -564,7 +564,7 @@ Function Export-ExchangePermission
     Complete-xProgress -Identity $CxPID
     Set-xProgress -Identity $PxPID -Status 'Step 12 of 12 : Export Permissions to CSV File'
     Write-xProgress -Identity $PxPID
-
+    WriteLog -Message "Starting Step 12 of 12 : Export Permissions to File" -EntryType Notification
     if ($ExportedPermissions.Count -ge 1)
     {
         Try
@@ -602,5 +602,6 @@ Function Export-ExchangePermission
     {
         WriteLog -Message 'No Permissions were generated for export by this operation.  Check the logs for errors if this is unexpected.' -EntryType Notification -Verbose
     }
+    WriteLog -Message "Completed Step 12 of 12 : Export Permissions to File" -EntryType Notification
     Complete-xProgress -Identity $PxPID
 }
