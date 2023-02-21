@@ -80,7 +80,7 @@ Function GetAutoMappingHash
     {
         Write-xProgress -Identity $xProgressID
         switch ($script:OrganizationType)
-        {
+        {   
             'ExchangeOnPremises'
             {$AutoMappingHash.$([guid]::new($u.msExchMailboxGuid).guid) = $u.msExchDelegateListLink}
             'ExchangeOnline'

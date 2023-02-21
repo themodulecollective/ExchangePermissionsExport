@@ -141,13 +141,17 @@ Function Export-ExchangePermission
     WriteLog -Message "Calling Invocation = $($MyInvocation.Line)" -EntryType Notification
     $ExportedExchangePermissionsFile = Join-Path -Path $OutputFolderPath -ChildPath $($BeginTimeStamp + '-' + $random + '-ExportedExchangePermissions.csv')
     $ResumeIndex = 0
-
+    WriteLog -Message "Completed Step 1 of 12 : Parameter Validation" -EntryType Notification
+    WriteLog -Message "Completed Step 2 of 12 : Configuration and Logging" -EntryType Notification
+    WriteLog -Message "LogFile Location: $LogPath" -EntryType Notification
+    WriteLog -Message "Error LogFile Location: $ErrorLogPath" -EntryType Notification
+    WriteLog -Message "Permission Export File Location: $ExportedExchangePermissionsFile" -EntryType Notification
     #EndRegion Configuration and Logging
 
     #Region Connect to Exchange
     Set-xProgress -Identity $PxPID -Status 'Step 3 of 12 : Connect to Exchange'
     Write-xProgress -Identity $PxPID
-
+    WriteLog -Message "Starting Step 3 of 12 : Connect to Exchange" -EntryType Notification
 
     switch ($script:ConnectExchangeOrganizationCompleted)
     {
@@ -176,13 +180,13 @@ Function Export-ExchangePermission
     }
     $ExchangeOrganization = Invoke-Command -Session $Script:PSSession -ScriptBlock { Get-OrganizationConfig | Select-Object -ExpandProperty Identity}
     WriteLog -Message "Provided Exchange Session is Running in Exchange Organzation $ExchangeOrganization" -EntryType Notification
-
+    WriteLog -Message "Completed Step 3 of 12 : Connect to Exchange" -EntryType Notification
     #EndRegion Connect to Exchange
 
     #Region Get Excluded Recipients
     Set-xProgress -Identity $PxPID -Status 'Step 4 of 12 : Get Excluded Recipients'
     Write-xProgress -Identity $PxPID
-
+    WriteLog -Message "Starting Step 4 of 12 : Get Excluded Recipients" -EntryType Notification
     if ($PSBoundParameters.ContainsKey('ExcludedIdentities'))
     {
         try
@@ -214,12 +218,13 @@ Function Export-ExchangePermission
     {
         $excludedRecipientGUIDHash = @{}
     }
+    WriteLog -Message "Completed Step 4 of 12 : Get Excluded Recipients" -EntryType Notification
     #EndRegion Get Excluded Recipients
 
     #Region Get Excluded Trustees
     Set-xProgress -Identity $PxPID -Status 'Step 5 of 12 : Get Excluded Trustees'
     Write-xProgress -Identity $PxPID
-
+    WriteLog -Message "Starting Step Step 5 of 12 : Get Excluded Trustees" -EntryType Notification
     if ($PSBoundParameters.ContainsKey('ExcludedTrusteeIdentities'))
     {
         try
@@ -251,6 +256,7 @@ Function Export-ExchangePermission
     {
         $excludedTrusteeGUIDHash = @{}
     }
+    WriteLog -Message "Completed Step Step 5 of 12 : Get Excluded Trustees" -EntryType Notification
     #EndRegion Get Excluded Trustees
 
     #Region Get InScope Recipients
@@ -259,7 +265,7 @@ Function Export-ExchangePermission
     {
         Set-xProgress -Identity $PxPID -Status 'Step 6 of 12 : Get InScope Recipients'
         Write-xProgress -Identity $PxPID
-
+        WriteLog -Message "Starting Step 6 of 12 : Get InScope Recipients" -EntryType Notification
         switch ($PSCmdlet.ParameterSetName)
         {
             'Scoped'
@@ -313,14 +319,14 @@ Function Export-ExchangePermission
     }
     $InScopeRecipientCount = $InScopeRecipients.count
     WriteLog -Message "Got $InScopeRecipientCount In Scope Recipient Objects" -EntryType Notification
-
+    WriteLog -Message "Completed Step 6 of 12 : Get InScope Recipients" -EntryType Notification
     #EndRegion Get InScope Recipients
 
     #Region Get SIDHistory
 
     Set-xProgress -Identity $PxPID -Status 'Step 7 of 12 : Get SIDHistory'
     Write-xProgress -Identity $PxPID
-
+    WriteLog -Message "Starting Step 7 of 12 : Get SIDHistory" -EntryType Notification
     if ($true -eq $IncludeSIDHistory)
     {
         $SIDHistoryRecipientHash = GetSIDHistoryRecipientHash -ActiveDirectoryDrive $ActiveDirectoryDrive -ExchangeSession $Script:PSSession -ErrorAction Stop
@@ -329,12 +335,13 @@ Function Export-ExchangePermission
     {
         $SIDHistoryRecipientHash = @{}
     }
+    WriteLog -Message "Completed Step 7 of 12 : Get SIDHistory" -EntryType Notification
     #EndRegion Get SIDHistory
 
     #Region Get AutoMapping
     Set-xProgress -Identity $PxPID -Status 'Step 8 of 12 : Setup AutoMapping Hashtable Lookup'
     Write-xProgress -Identity $PxPID
-
+    WriteLog -Message "Starting Step 8 of 12 : Setup AutoMapping Hashtable Lookup" -EntryType Notification
 
     if ($true -eq $IncludeAutoMapping)
     {
@@ -353,12 +360,13 @@ Function Export-ExchangePermission
     {
         $AutoMappingHash = @{}
     }
+    WriteLog -Message "Completed Step 8 of 12 : Setup AutoMapping Hashtable Lookup" -EntryType Notification
     #EndRegion Get AutoMapping
 
     #Region Build Lookup HashTables
     Set-xProgress -Identity $PxPID -Status 'Step 9 of 12 : Setup Other Lookup Hashtables'
     Write-xProgress -Identity $PxPID
-
+    WriteLog -Message "Starting Step 9 of 12 : Setup Other Lookup Hashtables" -EntryType Notification
 
     WriteLog -Message 'Building Recipient Lookup HashTables' -EntryType Notification
     $ObjectGUIDHash = $InScopeRecipients | Select-Object -Property $HRPropertySet | Group-Object -AsHashTable -Property Guid -AsString
@@ -375,7 +383,7 @@ Function Export-ExchangePermission
     {
         $script:ExpandedGroupsNonGroupMembershipHash = @{}
     }
-
+    WriteLog -Message "Completed Step 9 of 12 : Setup Other Lookup Hashtables" -EntryType Notification
     #EndRegion Build Lookup HashTables
 
     #Set Up to Loop through Mailboxes/Recipients
@@ -383,7 +391,7 @@ Function Export-ExchangePermission
     $ExportedPermissions = @(
         Set-xProgress -Identity $PxPID -Status 'Step 10 of 12 : Get AutoMapping "Permissions"'
         Write-xProgress -Identity $PxPID
-
+        WriteLog -Message "Starting Step 10 of 12 : Getting AutoMapping 'Permissions'" -EntryType Notification
         #Region Get Automapping Settings
 
         If (($IncludeAutoMapping) -and ($IncludeAutoMappingSetting) -and (!($GlobalSendAs)))
@@ -391,14 +399,14 @@ Function Export-ExchangePermission
             Write-Verbose -Message 'Getting AutoMapping Settings As Permissions for All Automappings'
             GetAutoMappingSetting -AutoMappingHash $AutoMappingHash -ObjectGUIDHash $ObjectGUIDHash -ExchangeSession $Script:PSSession -excludedTrusteeGUIDHash $excludedTrusteeGUIDHash -ExchangeOrganization $ExchangeOrganization -DomainPrincipalHash $DomainPrincipalHash -HRPropertySet $HRPropertySet -dropInheritedPermissions $dropInheritedPermissions -UnfoundIdentitiesHash $UnfoundIdentitiesHash
         }
-
+        WriteLog -Message "Completed Step 10 of 12 : Getting AutoMapping 'Permissions'" -EntryType Notification
         #EndRegion Get Automapping Settings
 
         #Setup for Permissions Collection
 
         Set-xProgress -Identity $PxPID -Status 'Step 11 of 12 : Get Permissions'
         Write-xProgress -Identity $PxPID
-
+        WriteLog -Message "Starting Step 11 of 12 : Get Permissions" -EntryType Notification
         $CxPParams = @{
             ArrayToProcess             = $InScopeRecipients
             CalculatedProgressInterval = '1Percent'
@@ -556,7 +564,7 @@ Function Export-ExchangePermission
     Complete-xProgress -Identity $CxPID
     Set-xProgress -Identity $PxPID -Status 'Step 12 of 12 : Export Permissions to CSV File'
     Write-xProgress -Identity $PxPID
-
+    WriteLog -Message "Starting Step 12 of 12 : Export Permissions to File" -EntryType Notification
     if ($ExportedPermissions.Count -ge 1)
     {
         Try
@@ -594,5 +602,6 @@ Function Export-ExchangePermission
     {
         WriteLog -Message 'No Permissions were generated for export by this operation.  Check the logs for errors if this is unexpected.' -EntryType Notification -Verbose
     }
+    WriteLog -Message "Completed Step 12 of 12 : Export Permissions to File" -EntryType Notification
     Complete-xProgress -Identity $PxPID
 }
