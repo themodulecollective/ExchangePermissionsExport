@@ -49,7 +49,7 @@ Function GetSendOnBehalfPermission
         }
         foreach ($sb in $sbTrustees)
         {
-            $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $sb.objectguid.guid -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -UnfoundIdentitiesHash $UnFoundIdentitiesHash
+            $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $sb -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -UnfoundIdentitiesHash $UnFoundIdentitiesHash #MS changed output of GrantSendOnBehalfTo Attribute
             switch ($null -eq $trusteeRecipient)
             {
                 $true

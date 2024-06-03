@@ -56,7 +56,7 @@ Function GetCalendarPermission
         }
     )
     #filter anon and default permissions
-    $RawCalendarPermissions = @($RawCalendarPermissions | Where-Object -FilterScript { $_.User -notlike 'Anonymous' -and $_.User -notlike 'Default' })
+    $RawCalendarPermissions = @($RawCalendarPermissions.where({$_.User.UserType.Value -notin @('Default','Anonymous')}))
     #process the permissions for export
     foreach ($rcp in $RawCalendarPermissions)
     {
@@ -68,7 +68,11 @@ Function GetCalendarPermission
                 {
                     'Internal'
                     {
-                        $user = $rcp.user.ADRecipient.guid.guid
+                        $user = $rcp.user.RecipientPrincipal # 2024-06-03 Micrsosoft changed the output of Get-MailboxFolderPermission!
+                    }
+                    'Unknown'
+                    {
+                        $user = $rcp.user.DisplayName
                     }
                     'External'
                     {
@@ -78,7 +82,7 @@ Function GetCalendarPermission
             }
             'ExchangeOnPremises'
             {
-                $user = $rcp.user
+                $user = $rfp.user
             }
         }
         $trusteeRecipient = GetTrusteeObject -TrusteeIdentity $user -HRPropertySet $HRPropertySet -ObjectGUIDHash $ObjectGUIDHash -DomainPrincipalHash $DomainPrincipalHash -SIDHistoryHash $SIDHistoryRecipientHash -ExchangeSession $ExchangeSession -UnfoundIdentitiesHash $UnFoundIdentitiesHash

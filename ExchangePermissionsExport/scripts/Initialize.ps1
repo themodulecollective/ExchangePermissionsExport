@@ -5,7 +5,30 @@
 $ModuleVariableNames = ('ExchangePermissionsExportConfiguration', 'ConnectExchangeOrganizationCompleted', 'OrganizationType','HRPropertySet')
 $ModuleVariableNames.ForEach( { Set-Variable -Scope Script -Name $_ -Value $null })
 $script:ConnectExchangeOrganizationCompleted = $false
-$script:HRPropertySet = @('*name*', '*addr*', 'RecipientType*', '*Id', 'Identity', 'GrantSendOnBehalfTo','Alias')
+$script:HRPropertySet = @(
+  'SamAccountName'
+  'UserPrincipalName'
+  'ArchiveName'
+  'DisplayName'
+  'SimpleDisplayName'
+  'Name'
+  'DistinguishedName'
+  'EmailAddresses'
+  'PrimarySmtpAddress'
+  'WindowsEmailAddress'
+  'RemoteRecipientType'
+  'RecipientType'
+  'RecipientTypeDetails'
+  'ExchangeGuid'
+  'NetID'
+  'WindowsLiveID'
+  'ImmutableId'
+  'ExternalDirectoryObjectId'
+  'Identity'
+  'Guid'
+  'GrantSendOnBehalfTo'
+  'Alias'
+)
 #enum InstallManager { Chocolatey; Git; PowerShellGet; Manual; WinGet }
 
 ###############################################################################################

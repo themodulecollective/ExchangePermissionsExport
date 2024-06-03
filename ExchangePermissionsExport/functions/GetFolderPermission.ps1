@@ -39,7 +39,7 @@ Function GetFolderPermission
         }
     )
     #filter anon and default permissions
-    $RawFolderPermissions = @($RawFolderPermissions | Where-Object -FilterScript { $_.User -notlike 'Anonymous' -and $_.User -notlike 'Default' })
+    $RawFolderPermissions = @($RawFolderPermissions.where({$_.User.UserType.Value -notin @('Default','Anonymous')}))
     #process the permissions for export
     foreach ($rfp in $RawFolderPermissions)
     {
@@ -51,7 +51,11 @@ Function GetFolderPermission
                 {
                     'Internal'
                     {
-                        $user = $rfp.user.ADRecipient.guid.guid
+                        $user = $rfp.user.RecipientPrincipal # 2024-06-03 Micrsosoft changed the output of Get-MailboxFolderPermission!
+                    }
+                    'Unknown'
+                    {
+                        $user = $rfp.user.DisplayName
                     }
                     'External'
                     {
