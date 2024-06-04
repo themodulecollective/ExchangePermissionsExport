@@ -44,7 +44,7 @@ Function NewPermissionExportObject
     )#End Param
     $PermissionExportObject =
     [pscustomobject]@{
-        PermissionIdentity          = $([guid]::NewGuid()).Guid
+        PermissionIdentity          = $([guid]::NewGuid()).guid
         ParentPermissionIdentity    = $ParentPermissionIdentity
         SourceExchangeOrganization  = $SourceExchangeOrganization
         TargetObjectGUID            = $TargetMailbox.Guid.Guid
