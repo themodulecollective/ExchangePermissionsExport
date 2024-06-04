@@ -6,14 +6,14 @@ $ModuleVariableNames = ('ExchangePermissionsExportConfiguration', 'ConnectExchan
 $ModuleVariableNames.ForEach( { Set-Variable -Scope Script -Name $_ -Value $null })
 $script:ConnectExchangeOrganizationCompleted = $false
 $script:HRPropertySet = @(
+  'Alias'
+  'DisplayName'
+  'Name'
   'SamAccountName'
   'UserPrincipalName'
   'ArchiveName'
-  'DisplayName'
   'SimpleDisplayName'
-  'Name'
   'DistinguishedName'
-  'EmailAddresses'
   'PrimarySmtpAddress'
   'WindowsEmailAddress'
   'RemoteRecipientType'
@@ -26,8 +26,6 @@ $script:HRPropertySet = @(
   'ExternalDirectoryObjectId'
   'Identity'
   'Guid'
-  'GrantSendOnBehalfTo'
-  'Alias'
 )
 #enum InstallManager { Chocolatey; Git; PowerShellGet; Manual; WinGet }
 
