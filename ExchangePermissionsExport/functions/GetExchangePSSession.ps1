@@ -26,7 +26,7 @@ Function GetExchangePSSession
             $ExchangeSession = New-PSSession @NewPsSessionParams
             Invoke-Command -Session $ExchangeSession -ScriptBlock {
                 Import-Module ExchangeOnlineManagement -MinimumVersion '3.0.0'
-                Connect-ExchangeOnline @ConnectExchangeOnlineParams
+                Connect-ExchangeOnline @using:ConnectExchangeOnlineParams
             }
 
         }
